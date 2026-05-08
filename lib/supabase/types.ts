@@ -1,0 +1,92 @@
+export type Category = 'analgésico' | 'antibiótico' | 'antiácido' | 'antihistamínico' | 'otro'
+export type Unit = 'comprimidos' | 'cápsulas' | 'ml' | 'sobres' | 'unidades'
+export type ExpiryStatus = 'expired' | 'critical' | 'warning' | 'ok'
+export type StockStatus = 'out_of_stock' | 'low_stock' | 'ok'
+export type AlertType = 'expiry' | 'low_stock' | 'out_of_stock'
+export type AlertSeverity = 'critical' | 'warning' | 'info'
+
+export interface Medication {
+  id: string
+  user_id: string
+  name: string
+  category: Category | null
+  unit: Unit
+  min_stock: number
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface StockItem {
+  id: string
+  medication_id: string
+  quantity: number
+  expiry_date: string | null
+  purchase_date: string
+  notes: string | null
+  created_at: string
+}
+
+export interface ConsumptionLog {
+  id: string
+  medication_id: string
+  quantity_used: number
+  date: string
+  reason: string | null
+  created_at: string
+}
+
+export interface Alert {
+  id: string
+  medication_id: string
+  type: AlertType
+  severity: AlertSeverity
+  trigger_date: string
+  sent_at: string | null
+  created_at: string
+}
+
+export interface MedicationSummary {
+  id: string
+  user_id: string
+  name: string
+  category: Category | null
+  unit: Unit
+  min_stock: number
+  total_stock: number
+  next_expiry: string | null
+  expiry_status: ExpiryStatus
+  stock_status: StockStatus
+}
+
+export type Database = {
+  public: {
+    Tables: {
+      medications: {
+        Row: Medication
+        Insert: Omit<Medication, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<Medication, 'id' | 'user_id' | 'created_at'>>
+      }
+      stock_items: {
+        Row: StockItem
+        Insert: Omit<StockItem, 'id' | 'created_at'>
+        Update: Partial<Omit<StockItem, 'id' | 'medication_id' | 'created_at'>>
+      }
+      consumption_log: {
+        Row: ConsumptionLog
+        Insert: Omit<ConsumptionLog, 'id' | 'created_at'>
+        Update: Partial<Omit<ConsumptionLog, 'id' | 'medication_id' | 'created_at'>>
+      }
+      alerts: {
+        Row: Alert
+        Insert: Omit<Alert, 'id' | 'created_at'>
+        Update: Partial<Omit<Alert, 'id' | 'medication_id' | 'created_at'>>
+      }
+    }
+    Views: {
+      v_medication_summary: {
+        Row: MedicationSummary
+      }
+    }
+  }
+}
