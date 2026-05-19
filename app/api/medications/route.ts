@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   }
 
   const { data, error } = await supabase
-    .from('medications')
+    .from('Med_medications')
     .insert({ user_id: user.id, name, category, unit, min_stock: min_stock ?? 5, notes })
     .select()
     .single()
