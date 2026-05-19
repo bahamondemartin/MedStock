@@ -36,7 +36,7 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'No stock available' }, { status: 409 })
   }
 
-  const totalAvailable = lots.reduce((sum, lot) => sum + lot.quantity, 0)
+  const totalAvailable = lots.reduce((sum: number, lot: any) => sum + lot.quantity, 0)
   if (quantity_used > totalAvailable) {
     return NextResponse.json({ error: 'Insufficient stock' }, { status: 409 })
   }
