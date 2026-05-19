@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import type { StockItem } from '@/lib/supabase/types'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -31,7 +32,7 @@ export async function POST(request: Request, { params }: Params) {
     .select('*')
     .eq('medication_id', medication_id)
     .gt('quantity', 0)
-    .order('expiry_date', { ascending: true, nullsFirst: false })
+    .order('expiry_date', { ascending: true, nullsFirst: false }) as { data: StockItem[] }
 
   if (!lots || lots.length === 0) {
     return NextResponse.json({ error: 'No stock available' }, { status: 409 })

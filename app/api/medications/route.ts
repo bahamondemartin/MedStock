@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import type { MedicationSummary, Medication } from '@/lib/supabase/types'
 
 export async function GET() {
   const supabase = await createClient()
@@ -10,7 +11,7 @@ export async function GET() {
     .from('v_medication_summary')
     .select('*')
     .eq('user_id', user.id)
-    .order('name')
+    .order('name') as { data: MedicationSummary[] | null; error: typeof error }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
