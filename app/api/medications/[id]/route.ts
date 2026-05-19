@@ -10,12 +10,11 @@ export async function GET(_request: Request, { params }: Params) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data, error } = await supabase
-    .from('medications')
+  const { data, error } = await (supabase.from('medications') as any)
     .select('*, stock_items(*)')
     .eq('id', id)
     .eq('user_id', user.id)
-    .single() as { data: Medication | null; error: any }
+    .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 404 })
   return NextResponse.json(data)
@@ -30,13 +29,12 @@ export async function PATCH(request: Request, { params }: Params) {
   const body = await request.json()
   const { name, category, unit, min_stock, notes } = body
 
-  const { data, error } = await supabase
-    .from('medications')
+  const { data, error } = await (supabase.from('medications') as any)
     .update({ name, category, unit, min_stock, notes })
     .eq('id', id)
     .eq('user_id', user.id)
     .select()
-    .single() as { data: Medication | null; error: any }
+    .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
