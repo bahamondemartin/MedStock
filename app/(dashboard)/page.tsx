@@ -6,6 +6,7 @@ import { AlertTriangle, PackageOpen, Clock, ShoppingCart } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { ExpiryBadge } from '@/components/medications/ExpiryBadge'
 import { StockBadge } from '@/components/medications/StockBadge'
+import type { MedicationSummary } from '@/lib/supabase/types'
 
 export const revalidate = 0
 
@@ -14,7 +15,7 @@ export default async function DashboardPage() {
   const { data: medications = [] } = await supabase
     .from('v_medication_summary')
     .select('*')
-    .order('name')
+    .order('name') as { data: MedicationSummary[] }
 
   const summary = computeAlertSummary(medications ?? [])
   const shoppingList = buildShoppingList(medications ?? [])

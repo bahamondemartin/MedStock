@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { buildShoppingList } from '@/lib/shopping'
 import { ShoppingList } from '@/components/shopping/ShoppingList'
 import { ShoppingCart } from 'lucide-react'
+import type { MedicationSummary } from '@/lib/supabase/types'
 
 export const revalidate = 0
 
@@ -10,7 +11,7 @@ export default async function ShoppingPage() {
   const { data: medications = [] } = await supabase
     .from('v_medication_summary')
     .select('*')
-    .order('name')
+    .order('name') as { data: MedicationSummary[] }
 
   const shoppingList = buildShoppingList(medications ?? [])
 
