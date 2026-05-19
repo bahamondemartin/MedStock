@@ -54,8 +54,7 @@ export async function POST(request: Request, { params }: Params) {
   }
 
   // Log the consumption
-  await supabase
-    .from('consumption_log')
+  await (supabase.from('consumption_log') as any)
     .insert({ medication_id, quantity_used, reason: reason ?? null })
 
   return NextResponse.json({ consumed: quantity_used })
