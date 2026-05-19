@@ -10,8 +10,7 @@ export async function POST(request: Request, { params }: Params) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // Verify ownership
-  const { data: med } = await supabase
-    .from('medications')
+  const { data: med } = await (supabase.from('medications') as any)
     .select('id')
     .eq('id', medication_id)
     .eq('user_id', user.id)
@@ -26,8 +25,7 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'quantity must be >= 0' }, { status: 400 })
   }
 
-  const { data, error } = await supabase
-    .from('stock_items')
+  const { data, error } = await (supabase.from('stock_items') as any)
     .insert({ medication_id, quantity, expiry_date: expiry_date ?? null, notes })
     .select()
     .single()
