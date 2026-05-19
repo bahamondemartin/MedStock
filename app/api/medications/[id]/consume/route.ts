@@ -47,9 +47,8 @@ export async function POST(request: Request, { params }: Params) {
   for (const lot of lots) {
     if (remaining <= 0) break
     const deduct = Math.min(lot.quantity, remaining)
-    await supabase
-      .from('stock_items')
-      .update({ quantity: lot.quantity - deduct } as any)
+    await (supabase.from('stock_items') as any)
+      .update({ quantity: lot.quantity - deduct })
       .eq('id', lot.id)
     remaining -= deduct
   }
