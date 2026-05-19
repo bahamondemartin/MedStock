@@ -49,7 +49,7 @@ export async function POST(request: Request, { params }: Params) {
     const deduct = Math.min(lot.quantity, remaining)
     await supabase
       .from('stock_items')
-      .update({ quantity: lot.quantity - deduct })
+      .update({ quantity: lot.quantity - deduct } as any)
       .eq('id', lot.id)
     remaining -= deduct
   }
