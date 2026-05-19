@@ -11,8 +11,7 @@ export async function POST(request: Request, { params }: Params) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: med } = await supabase
-    .from('medications')
+  const { data: med } = await (supabase.from('medications') as any)
     .select('id')
     .eq('id', medication_id)
     .eq('user_id', user.id)
@@ -27,12 +26,11 @@ export async function POST(request: Request, { params }: Params) {
   }
 
   // Get lots ordered by soonest expiry (FEFO), nulls last
-  const { data: lots } = await supabase
-    .from('stock_items')
+  const { data: lots } = await (supabase.from('stock_items') as any)
     .select('*')
     .eq('medication_id', medication_id)
     .gt('quantity', 0)
-    .order('expiry_date', { ascending: true, nullsFirst: false }) as { data: StockItem[] }
+    .order('expiry_date', { ascending: true, nullsFirst: false })
 
   if (!lots || lots.length === 0) {
     return NextResponse.json({ error: 'No stock available' }, { status: 409 })
