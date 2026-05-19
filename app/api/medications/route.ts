@@ -7,13 +7,13 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data, error } = await (supabase.from('v_medication_summary') as any)
+  const result: any = await (supabase.from('v_medication_summary') as any)
     .select('*')
     .eq('user_id', user.id)
     .order('name')
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data)
+  if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 })
+  return NextResponse.json(result.data)
 }
 
 export async function POST(request: Request) {
@@ -28,8 +28,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'name and unit are required' }, { status: 400 })
   }
 
-  const { data, error } = await supabase
-    .from('Med_medications')
+  const { data, error } = await (supabase.from('Med_medications') as any)
     .insert({ user_id: user.id, name, category, unit, min_stock: min_stock ?? 5, notes })
     .select()
     .single()
