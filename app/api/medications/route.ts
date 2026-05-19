@@ -11,7 +11,7 @@ export async function GET() {
     .from('v_medication_summary')
     .select('*')
     .eq('user_id', user.id)
-    .order('name') as { data: MedicationSummary[] | null; error: typeof error }
+    .order('name') as { data: MedicationSummary[] | null; error: any }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
