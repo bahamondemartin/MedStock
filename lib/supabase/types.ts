@@ -59,6 +59,34 @@ export interface MedicationSummary {
   stock_status: StockStatus
 }
 
+export type FamilyRole = 'owner' | 'member'
+
+export interface MedFamily {
+  id: string
+  name: string
+  owner_id: string
+  created_at: string
+}
+
+export interface MedFamilyMember {
+  id: string
+  family_id: string
+  user_id: string
+  role: FamilyRole
+  joined_at: string
+}
+
+export interface MedFamilyInvite {
+  id: string
+  family_id: string
+  email: string
+  token: string
+  invited_by: string
+  accepted_at: string | null
+  expires_at: string
+  created_at: string
+}
+
 export type Database = {
   public: {
     Tables: {

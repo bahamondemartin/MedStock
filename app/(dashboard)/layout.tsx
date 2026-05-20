@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { LayoutDashboard, Package, ShoppingCart, LogOut } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingCart, LogOut, Users } from 'lucide-react'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -45,6 +45,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <NavLink href="/" icon={<LayoutDashboard className="w-5 h-5" />} label="Inicio" />
           <NavLink href="/inventory" icon={<Package className="w-5 h-5" />} label="Inventario" />
           <NavLink href="/shopping" icon={<ShoppingCart className="w-5 h-5" />} label="Compras" />
+          <NavLink href="/family" icon={<Users className="w-5 h-5" />} label="Familia" />
         </div>
       </nav>
     </div>
