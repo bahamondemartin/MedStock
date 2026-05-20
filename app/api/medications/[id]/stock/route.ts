@@ -3,6 +3,29 @@ import { createClient } from '@/lib/supabase/server'
 
 type Params = { params: Promise<{ id: string }> }
 
+export async function GET(_req: Request, { params }: Params) {
+  const { id: medication_id } = await params
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { data: med } = await (supabase.from('med_medications') as any)
+    .select('id')
+    .eq('id', medication_id)
+    .eq('user_id', user.id)
+    .single()
+  if (!med) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  const { data, error } = await (supabase.from('med_stock_items') as any)
+    .select('id, quantity, expiry_date, purchase_date, notes')
+    .eq('medication_id', medication_id)
+    .gt('quantity', 0)
+    .order('expiry_date', { ascending: true, nullsFirst: false })
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data ?? [])
+}
+
 export async function POST(request: Request, { params }: Params) {
   const { id: medication_id } = await params
   const supabase = await createClient()

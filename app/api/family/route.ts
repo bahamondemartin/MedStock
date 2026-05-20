@@ -21,7 +21,7 @@ export async function GET() {
     .single()
 
   const { data: members } = await (supabase.from('med_family_members') as any)
-    .select('id, user_id, role, joined_at')
+    .select('id, user_id, role, joined_at, email')
     .eq('family_id', membership.family_id)
 
   const { data: invites } = await (supabase.from('med_family_invites') as any)
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   await (supabase.from('med_family_members') as any)
-    .insert({ family_id: family.id, user_id: user.id, role: 'owner' })
+    .insert({ family_id: family.id, user_id: user.id, role: 'owner', email: user.email })
 
   return NextResponse.json(family, { status: 201 })
 }

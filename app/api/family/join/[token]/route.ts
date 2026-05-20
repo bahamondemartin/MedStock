@@ -26,7 +26,7 @@ export async function POST(_req: Request, { params }: Params) {
   if (existing) return NextResponse.json({ error: 'Ya perteneces a una familia' }, { status: 409 })
 
   await (supabase.from('med_family_members') as any)
-    .insert({ family_id: invite.family_id, user_id: user.id, role: 'member' })
+    .insert({ family_id: invite.family_id, user_id: user.id, role: 'member', email: user.email })
 
   await (supabase.from('med_family_invites') as any)
     .update({ accepted_at: new Date().toISOString() })

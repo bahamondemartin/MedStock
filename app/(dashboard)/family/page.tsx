@@ -10,6 +10,7 @@ interface Member {
   user_id: string
   role: 'owner' | 'member'
   joined_at: string
+  email: string | null
 }
 
 interface Invite {
@@ -176,14 +177,14 @@ export default function FamilyPage() {
             {data.members.map((m) => (
               <div key={m.id} className="px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
-                    <Users className="w-4 h-4 text-slate-400" />
+                  <div className="w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center">
+                    <Users className="w-4 h-4 text-brand-400" />
                   </div>
                   <div>
-                    <p className="text-sm text-slate-700 font-medium">
-                      {m.role === 'owner' ? 'Tú (dueño)' : `Miembro`}
+                    <p className="text-sm text-slate-700 font-medium truncate max-w-[180px]">
+                      {m.email ?? m.user_id.slice(0, 8) + '…'}
                     </p>
-                    <p className="text-xs text-slate-400 capitalize">{m.role}</p>
+                    <p className="text-xs text-slate-400">{m.role === 'owner' ? 'Dueño' : 'Miembro'}</p>
                   </div>
                 </div>
                 {data.role === 'owner' && m.role !== 'owner' && (
