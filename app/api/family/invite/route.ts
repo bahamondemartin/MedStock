@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -35,6 +33,7 @@ export async function POST(request: Request) {
 
   const joinUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://med-stock-jade.vercel.app'}/family/join/${invite.token}`
 
+  const resend = new Resend(process.env.RESEND_API_KEY)
   await resend.emails.send({
     from: 'MedStock <no-reply@medstock.app>',
     to: email.trim(),
