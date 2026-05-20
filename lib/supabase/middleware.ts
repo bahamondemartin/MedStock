@@ -26,20 +26,23 @@ export async function updateSession(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const isAuthPage = request.nextUrl.pathname.startsWith('/login')
-  const isAuthCallback = request.nextUrl.pathname.startsWith('/auth')
-  const isApiRoute = request.nextUrl.pathname.startsWith('/api')
-  const isFamilyJoin = request.nextUrl.pathname.startsWith('/family/join')
+  const pathname = request.nextUrl.pathname
+  const isPublic = pathname === '/'
+    || pathname.startsWith('/login')
+    || pathname.startsWith('/auth')
+    || pathname.startsWith('/api')
+    || pathname.startsWith('/family/join')
 
-  if (!user && !isAuthPage && !isAuthCallback && !isApiRoute && !isFamilyJoin) {
+  if (!user && !isPublic) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  if (user && isAuthPage) {
+  // Authenticated users hitting /login or / → send to dashboard
+  if (user && (pathname.startsWith('/login') || pathname === '/')) {
     const url = request.nextUrl.clone()
-    url.pathname = '/'
+    url.pathname = '/home'
     return NextResponse.redirect(url)
   }
 

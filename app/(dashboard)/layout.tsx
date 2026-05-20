@@ -42,7 +42,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       {/* Bottom nav */}
       <nav className="bg-white border-t border-slate-200 sticky bottom-0">
         <div className="max-w-2xl mx-auto flex">
-          <NavLink href="/" icon={<LayoutDashboard className="w-5 h-5" />} label="Inicio" />
+          <NavLink href="/home" icon={<LayoutDashboard className="w-5 h-5" />} label="Inicio" />
           <NavLink href="/inventory" icon={<Package className="w-5 h-5" />} label="Inventario" />
           <NavLink href="/shopping" icon={<ShoppingCart className="w-5 h-5" />} label="Compras" />
           <NavLink href="/family" icon={<Users className="w-5 h-5" />} label="Familia" />
