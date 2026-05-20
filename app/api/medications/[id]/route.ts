@@ -10,8 +10,8 @@ export async function GET(_request: Request, { params }: Params) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data, error } = await (supabase.from('Med_medications') as any)
-    .select('*, Med_stock_items(*)')
+  const { data, error } = await (supabase.from('med_medications') as any)
+    .select('*, med_stock_items(*)')
     .eq('id', id)
     .eq('user_id', user.id)
     .single()
@@ -29,7 +29,7 @@ export async function PATCH(request: Request, { params }: Params) {
   const body = await request.json()
   const { name, category, unit, min_stock, notes } = body
 
-  const { data, error } = await (supabase.from('Med_medications') as any)
+  const { data, error } = await (supabase.from('med_medications') as any)
     .update({ name, category, unit, min_stock, notes })
     .eq('id', id)
     .eq('user_id', user.id)
@@ -47,7 +47,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { error } = await supabase
-    .from('Med_medications')
+    .from('med_medications')
     .delete()
     .eq('id', id)
     .eq('user_id', user.id)

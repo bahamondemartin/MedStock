@@ -11,7 +11,7 @@ export async function POST(request: Request, { params }: Params) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: med } = await (supabase.from('Med_medications') as any)
+  const { data: med } = await (supabase.from('med_medications') as any)
     .select('id')
     .eq('id', medication_id)
     .eq('user_id', user.id)
@@ -26,7 +26,7 @@ export async function POST(request: Request, { params }: Params) {
   }
 
   // Get lots ordered by soonest expiry (FEFO), nulls last
-  const { data: lots } = await (supabase.from('Med_stock_items') as any)
+  const { data: lots } = await (supabase.from('med_stock_items') as any)
     .select('*')
     .eq('medication_id', medication_id)
     .gt('quantity', 0)
@@ -45,14 +45,14 @@ export async function POST(request: Request, { params }: Params) {
   for (const lot of lots) {
     if (remaining <= 0) break
     const deduct = Math.min(lot.quantity, remaining)
-    await (supabase.from('Med_stock_items') as any)
+    await (supabase.from('med_stock_items') as any)
       .update({ quantity: lot.quantity - deduct })
       .eq('id', lot.id)
     remaining -= deduct
   }
 
   // Log the consumption
-  await (supabase.from('Med_consumption_log') as any)
+  await (supabase.from('med_consumption_log') as any)
     .insert({ medication_id, quantity_used, reason: reason ?? null })
 
   return NextResponse.json({ consumed: quantity_used })

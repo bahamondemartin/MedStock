@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'name and unit are required' }, { status: 400 })
   }
 
-  const { data, error } = await (supabase.from('Med_medications') as any)
+  const { data, error } = await (supabase.from('med_medications') as any)
     .insert({ user_id: user.id, name, category, unit, min_stock: min_stock ?? 5, notes })
     .select()
     .single()
