@@ -1,33 +1,40 @@
 'use client'
 
 import { useState } from 'react'
-import { Minus, Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Trash2, ChevronDown, ChevronUp, Plus, ArrowDownCircle } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { StockBadge } from './StockBadge'
 import { ExpiryBadge } from './ExpiryBadge'
+import { ConsumeForm } from './ConsumeForm'
 import type { MedicationSummary } from '@/lib/supabase/types'
 
 interface MedicationCardProps {
   medication: MedicationSummary
-  onConsume: (id: string, quantity: number) => Promise<void>
+  onRefresh: () => void
   onDelete: (id: string) => Promise<void>
   onAddStock: (id: string) => void
 }
 
-export function MedicationCard({ medication: med, onConsume, onDelete, onAddStock }: MedicationCardProps) {
+export function MedicationCard({ medication: med, onRefresh, onDelete, onAddStock }: MedicationCardProps) {
   const [expanded, setExpanded] = useState(false)
-  const [consuming, setConsuming] = useState(false)
+  const [showConsume, setShowConsume] = useState(false)
 
   const isAlert = med.expiry_status !== 'ok' || med.stock_status !== 'ok'
 
-  async function handleConsume(qty: number) {
-    setConsuming(true)
-    try {
-      await onConsume(med.id, qty)
-    } finally {
-      setConsuming(false)
-    }
+  if (showConsume) {
+    return (
+      <Card className="p-4">
+        <ConsumeForm
+          medicationId={med.id}
+          medicationName={med.name}
+          totalStock={med.total_stock}
+          unit={med.unit}
+          onSuccess={() => { setShowConsume(false); onRefresh() }}
+          onCancel={() => setShowConsume(false)}
+        />
+      </Card>
+    )
   }
 
   return (
@@ -53,25 +60,21 @@ export function MedicationCard({ medication: med, onConsume, onDelete, onAddStoc
           <ExpiryBadge status={med.expiry_status} nextExpiry={med.next_expiry} />
         </div>
 
-        {/* Quick consume buttons */}
+        {/* Actions */}
         <div className="flex items-center gap-2 mt-3">
-          <span className="text-xs text-slate-500 mr-1">Usé:</span>
-          {[1, 2, 5].map((qty) => (
-            <button
-              key={qty}
-              onClick={() => handleConsume(qty)}
-              disabled={consuming || med.total_stock === 0}
-              className="inline-flex items-center gap-0.5 px-2 py-1 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors"
-            >
-              <Minus className="w-3 h-3" />
-              {qty}
-            </button>
-          ))}
+          <button
+            onClick={() => setShowConsume(true)}
+            disabled={med.total_stock === 0}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-medium"
+          >
+            <ArrowDownCircle className="w-3.5 h-3.5" />
+            Registrar salida
+          </button>
           <button
             onClick={() => onAddStock(med.id)}
-            className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg bg-brand-50 text-brand-600 hover:bg-brand-100 transition-colors font-medium"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-lg bg-brand-50 text-brand-600 hover:bg-brand-100 transition-colors font-medium"
           >
-            <Plus className="w-3 h-3" />
+            <Plus className="w-3.5 h-3.5" />
             Agregar stock
           </button>
         </div>

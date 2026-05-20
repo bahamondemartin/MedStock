@@ -33,15 +33,6 @@ export default function InventoryPage() {
     fetchMedications()
   }, [fetchMedications])
 
-  async function handleConsume(id: string, quantity: number) {
-    await fetch(`/api/medications/${id}/consume`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ quantity_used: quantity }),
-    })
-    await fetchMedications()
-  }
-
   async function handleDelete(id: string) {
     if (!confirm('¿Eliminar este medicamento y todo su stock?')) return
     await fetch(`/api/medications/${id}`, { method: 'DELETE' })
@@ -143,7 +134,7 @@ export default function InventoryPage() {
             <MedicationCard
               key={med.id}
               medication={med}
-              onConsume={handleConsume}
+              onRefresh={fetchMedications}
               onDelete={handleDelete}
               onAddStock={(id) => setAddStockFor(id)}
             />
