@@ -29,8 +29,9 @@ export async function updateSession(request: NextRequest) {
   const isAuthPage = request.nextUrl.pathname.startsWith('/login')
   const isAuthCallback = request.nextUrl.pathname.startsWith('/auth')
   const isApiRoute = request.nextUrl.pathname.startsWith('/api')
+  const isFamilyJoin = request.nextUrl.pathname.startsWith('/family/join')
 
-  if (!user && !isAuthPage && !isAuthCallback && !isApiRoute) {
+  if (!user && !isAuthPage && !isAuthCallback && !isApiRoute && !isFamilyJoin) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Pill } from 'lucide-react'
 
@@ -9,6 +10,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const searchParams = useSearchParams()
+  const next = searchParams.get('next') ?? ''
 
   const supabase = createClient()
 
@@ -17,11 +20,13 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
 
+    const redirectTo = next
+      ? `${location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+      : `${location.origin}/auth/callback`
+
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: {
-        emailRedirectTo: `${location.origin}/auth/callback`,
-      },
+      options: { emailRedirectTo: redirectTo },
     })
 
     if (error) {
