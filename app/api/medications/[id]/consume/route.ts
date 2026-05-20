@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import type { StockItem } from '@/lib/supabase/types'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -26,12 +25,13 @@ export async function POST(request: Request, { params }: Params) {
   }
 
   // Get lots ordered by soonest expiry (FEFO), nulls last
-  const { data: lots } = await (supabase.from('med_stock_items') as any)
+  const { data: lots, error: lotsError } = await (supabase.from('med_stock_items') as any)
     .select('*')
     .eq('medication_id', medication_id)
     .gt('quantity', 0)
     .order('expiry_date', { ascending: true, nullsFirst: false })
 
+  if (lotsError) return NextResponse.json({ error: lotsError.message }, { status: 500 })
   if (!lots || lots.length === 0) {
     return NextResponse.json({ error: 'No stock available' }, { status: 409 })
   }
@@ -45,13 +45,13 @@ export async function POST(request: Request, { params }: Params) {
   for (const lot of lots) {
     if (remaining <= 0) break
     const deduct = Math.min(lot.quantity, remaining)
-    await (supabase.from('med_stock_items') as any)
+    const { error: updateError } = await (supabase.from('med_stock_items') as any)
       .update({ quantity: lot.quantity - deduct })
       .eq('id', lot.id)
+    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
     remaining -= deduct
   }
 
-  // Log the consumption
   await (supabase.from('med_consumption_log') as any)
     .insert({ medication_id, quantity_used, reason: reason ?? null })
 
