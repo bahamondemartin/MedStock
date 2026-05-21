@@ -16,7 +16,7 @@ export async function GET() {
   if (!membership) return NextResponse.json({ family: null })
 
   const { data: family } = await (supabase.from('med_families') as any)
-    .select('*')
+    .select('id, name, owner_id, join_code')
     .eq('id', membership.family_id)
     .single()
 
@@ -24,12 +24,7 @@ export async function GET() {
     .select('id, user_id, role, joined_at, email')
     .eq('family_id', membership.family_id)
 
-  const { data: invites } = await (supabase.from('med_family_invites') as any)
-    .select('id, email, accepted_at, expires_at, created_at')
-    .eq('family_id', membership.family_id)
-    .is('accepted_at', null)
-
-  return NextResponse.json({ family, members: members ?? [], invites: invites ?? [], role: membership.role })
+  return NextResponse.json({ family, members: members ?? [], role: membership.role })
 }
 
 // POST: create a new family (user becomes owner)
