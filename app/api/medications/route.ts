@@ -22,14 +22,14 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { name, category, unit, min_stock, notes } = body
+  const { name, category, unit, min_stock, notes, is_pediatric } = body
 
   if (!name || !unit) {
     return NextResponse.json({ error: 'name and unit are required' }, { status: 400 })
   }
 
   const { data, error } = await (supabase.from('med_medications') as any)
-    .insert({ user_id: user.id, name, category, unit, min_stock: min_stock ?? 5, notes })
+    .insert({ user_id: user.id, name, category, unit, min_stock: min_stock ?? 5, notes, is_pediatric: is_pediatric ?? false })
     .select()
     .single()
 

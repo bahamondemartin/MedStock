@@ -24,3 +24,29 @@ export async function DELETE(_req: Request, { params }: Params) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }
+
+export async function PATCH(request: Request, { params }: Params) {
+  const { id: medication_id, lotId } = await params
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { data: med } = await (supabase.from('med_medications') as any)
+    .select('id')
+    .eq('id', medication_id)
+    .eq('user_id', user.id)
+    .single()
+  if (!med) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  const { quantity, expiry_date } = await request.json()
+
+  const { data, error } = await (supabase.from('med_stock_items') as any)
+    .update({ quantity, expiry_date: expiry_date || null })
+    .eq('id', lotId)
+    .eq('medication_id', medication_id)
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
+}

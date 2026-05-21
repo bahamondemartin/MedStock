@@ -53,10 +53,38 @@ export interface MedicationSummary {
   category: Category | null
   unit: Unit
   min_stock: number
+  is_pediatric: boolean
   total_stock: number
   next_expiry: string | null
   expiry_status: ExpiryStatus
   stock_status: StockStatus
+}
+
+export interface PrescriptionMedItem {
+  medication_id: string | null
+  medication_name: string
+  dose: string
+  frequency_hours?: number | null
+  duration_days?: number | null
+}
+
+export interface Prescription {
+  id: string
+  user_id: string
+  // legacy single-medication fields (kept for backward compat)
+  medication_id: string | null
+  medication_name: string
+  dose: string
+  // multi-medication list (primary for new records)
+  medications: PrescriptionMedItem[]
+  schedule_times: string[]
+  frequency_hours: number | null
+  start_date: string
+  end_date: string | null
+  active: boolean
+  notes: string | null
+  patient_name: string | null
+  created_at: string
 }
 
 export type FamilyRole = 'owner' | 'member'
