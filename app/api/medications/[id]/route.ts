@@ -27,10 +27,10 @@ export async function PATCH(request: Request, { params }: Params) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { name, category, unit, min_stock, notes } = body
+  const { name, category, unit, min_stock, notes, is_pediatric } = body
 
   const { data, error } = await (supabase.from('med_medications') as any)
-    .update({ name, category, unit, min_stock, notes })
+    .update({ name, category, unit, min_stock, notes, is_pediatric })
     .eq('id', id)
     .eq('user_id', user.id)
     .select()
