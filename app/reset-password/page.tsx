@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Pill, Eye, EyeOff } from 'lucide-react'
 
 export default function ResetPasswordPage() {
@@ -10,7 +9,6 @@ export default function ResetPasswordPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const supabase = createClient()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -18,9 +16,14 @@ export default function ResetPasswordPage() {
     if (password !== confirmPassword) { setError('Las contraseñas no coinciden.'); return }
     setLoading(true)
     setError(null)
-    const { error } = await supabase.auth.updateUser({ password })
-    if (error) {
-      setError(error.message)
+    const res = await fetch('/api/auth/update-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    })
+    const json = await res.json()
+    if (!res.ok) {
+      setError(json.error ?? 'Error al guardar la contraseña.')
       setLoading(false)
     } else {
       window.location.href = '/home'
