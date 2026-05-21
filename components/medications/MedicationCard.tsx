@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { Trash2, ChevronDown, ChevronUp, Plus, ArrowDownCircle, Package } from 'lucide-react'
+import { Trash2, ChevronDown, ChevronUp, Plus, ArrowDownCircle, Package, Baby } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { StockBadge } from './StockBadge'
@@ -86,7 +86,12 @@ export function MedicationCard({ medication: med, onRefresh, onDelete, onAddStoc
         {/* Header row */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-slate-900 truncate">{med.name}</h3>
+            <div className="flex items-center gap-1.5">
+              <h3 className="font-semibold text-slate-900 truncate">{med.name}</h3>
+              {med.is_pediatric && (
+                <Baby className="w-3.5 h-3.5 text-sky-400 flex-shrink-0" title="Pediátrico" />
+              )}
+            </div>
             {med.category && (
               <span className="text-xs text-slate-400 capitalize">{med.category}</span>
             )}

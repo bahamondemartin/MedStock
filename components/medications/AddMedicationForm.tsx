@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Baby, User } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 
 const CATEGORIES = ['analgésico', 'antibiótico', 'antiácido', 'antihistamínico', 'otro'] as const
@@ -19,6 +20,7 @@ export function AddMedicationForm({ onSuccess, onCancel }: Props) {
     category: '',
     unit: 'comprimidos' as typeof UNITS[number],
     min_stock: 5,
+    is_pediatric: false,
   })
 
   function set<K extends keyof typeof form>(key: K, value: typeof form[K]) {
@@ -99,6 +101,37 @@ export function AddMedicationForm({ onSuccess, onCancel }: Props) {
           className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
         <p className="text-xs text-slate-400 mt-1">Avisa cuando el stock baje de este número</p>
+      </div>
+
+      {/* Pediatric toggle */}
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-2">Paciente</label>
+        <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => set('is_pediatric', false)}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${
+              !form.is_pediatric
+                ? 'bg-brand-500 text-white'
+                : 'bg-white text-slate-500 hover:bg-slate-50'
+            }`}
+          >
+            <User className="w-4 h-4" />
+            Adulto
+          </button>
+          <button
+            type="button"
+            onClick={() => set('is_pediatric', true)}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${
+              form.is_pediatric
+                ? 'bg-brand-500 text-white'
+                : 'bg-white text-slate-500 hover:bg-slate-50'
+            }`}
+          >
+            <Baby className="w-4 h-4" />
+            Pediátrico
+          </button>
+        </div>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

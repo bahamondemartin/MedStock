@@ -1,145 +1,159 @@
-import { createClient } from '@/lib/supabase/server'
-import { computeAlertSummary } from '@/lib/alerts'
-import { buildShoppingList } from '@/lib/shopping'
-import Link from 'next/link'
-import { AlertTriangle, PackageOpen, Clock, ShoppingCart } from 'lucide-react'
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { AlertTriangle, PackageOpen, ShoppingCart, Plus, Search } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
-import { ExpiryBadge } from '@/components/medications/ExpiryBadge'
-import { StockBadge } from '@/components/medications/StockBadge'
+import { MedicationCard } from '@/components/medications/MedicationCard'
+import { AddMedicationForm } from '@/components/medications/AddMedicationForm'
+import { AddStockForm } from '@/components/medications/AddStockForm'
+import { buildShoppingList } from '@/lib/shopping'
+import { computeAlertSummary } from '@/lib/alerts'
 import type { MedicationSummary } from '@/lib/supabase/types'
+import Link from 'next/link'
 
-export const revalidate = 0
+export default function HomePage() {
+  const [medications, setMedications] = useState<MedicationSummary[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [addStockFor, setAddStockFor] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
 
-export default async function DashboardPage() {
-  const supabase = await createClient()
-  const { data: medications = [] } = await supabase
-    .from('v_medication_summary')
-    .select('*')
-    .order('name') as { data: MedicationSummary[] }
+  const fetchMedications = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/medications')
+      if (res.ok) setMedications(await res.json())
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
-  const summary = computeAlertSummary(medications ?? [])
-  const shoppingList = buildShoppingList(medications ?? [])
+  useEffect(() => { fetchMedications() }, [fetchMedications])
 
-  const alertMeds = (medications ?? []).filter(
-    (m) => m.expiry_status !== 'ok' || m.stock_status !== 'ok'
-  )
+  async function handleDelete(id: string) {
+    if (!confirm('¿Eliminar este medicamento y todo su stock?')) return
+    await fetch(`/api/medications/${id}`, { method: 'DELETE' })
+    await fetchMedications()
+  }
+
+  const summary = computeAlertSummary(medications)
+  const shoppingList = buildShoppingList(medications)
+  const filtered = search.trim()
+    ? medications.filter((m) => m.name.toLowerCase().includes(search.toLowerCase()))
+    : medications
+
+  if (addStockFor) {
+    const med = medications.find((m) => m.id === addStockFor)
+    return (
+      <div className="space-y-5">
+        <h1 className="text-xl font-bold text-slate-900">Agregar stock</h1>
+        {med && <p className="text-sm text-slate-500">Medicamento: <strong className="text-slate-700">{med.name}</strong></p>}
+        <Card className="p-5">
+          <AddStockForm
+            medicationId={addStockFor}
+            onSuccess={() => { setAddStockFor(null); fetchMedications() }}
+            onCancel={() => setAddStockFor(null)}
+          />
+        </Card>
+      </div>
+    )
+  }
+
+  if (showAddForm) {
+    return (
+      <div className="space-y-5">
+        <h1 className="text-xl font-bold text-slate-900">Nuevo medicamento</h1>
+        <Card className="p-5">
+          <AddMedicationForm
+            onSuccess={() => { setShowAddForm(false); fetchMedications() }}
+            onCancel={() => setShowAddForm(false)}
+          />
+        </Card>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
-      <div>
+      <div className="flex items-center gap-2">
         <h1 className="text-xl font-bold text-slate-900">Mi botiquín</h1>
-        <p className="text-sm text-slate-500 mt-0.5">
-          {medications?.length ?? 0} medicamento{(medications?.length ?? 0) !== 1 ? 's' : ''} registrado{(medications?.length ?? 0) !== 1 ? 's' : ''}
-        </p>
+        <Button size="sm" onClick={() => setShowAddForm(true)} className="ml-auto">
+          <Plus className="w-4 h-4 mr-1" />
+          Agregar
+        </Button>
       </div>
 
-      {/* Summary stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <StatCard
-          icon={<AlertTriangle className="w-4 h-4 text-red-500" />}
-          value={summary.expiredCount + summary.criticalCount}
-          label="Críticos"
-          color="red"
-        />
-        <StatCard
-          icon={<PackageOpen className="w-4 h-4 text-amber-500" />}
-          value={summary.outOfStockCount + summary.lowStockCount}
-          label="Stock bajo"
-          color="amber"
-        />
-        <StatCard
-          icon={<ShoppingCart className="w-4 h-4 text-brand-500" />}
-          value={shoppingList.length}
-          label="Por comprar"
-          color="brand"
-        />
-      </div>
-
-      {/* Alerts section */}
-      {alertMeds.length > 0 ? (
-        <section>
-          <h2 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-1.5">
-            <Clock className="w-4 h-4 text-amber-500" />
-            Requieren atención
-          </h2>
-          <div className="space-y-2">
-            {alertMeds.map((med) => (
-              <Card key={med.id} className="border-l-4 border-l-amber-400">
-                <div className="px-4 py-3">
-                  <p className="font-medium text-slate-900 text-sm">{med.name}</p>
-                  <div className="flex flex-wrap gap-1.5 mt-1.5">
-                    <StockBadge status={med.stock_status} total={med.total_stock} unit={med.unit} />
-                    <ExpiryBadge status={med.expiry_status} nextExpiry={med.next_expiry} />
-                  </div>
-                </div>
-              </Card>
-            ))}
+      {/* Stats */}
+      {!loading && medications.length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-xl p-3 bg-red-50">
+            <AlertTriangle className="w-4 h-4 text-red-500 mb-1" />
+            <p className="text-2xl font-bold text-red-900">{summary.expiredCount + summary.criticalCount}</p>
+            <p className="text-xs text-slate-500 mt-0.5">Críticos</p>
           </div>
-        </section>
-      ) : medications && medications.length > 0 ? (
-        <Card className="p-6 text-center">
-          <div className="text-3xl mb-2">✅</div>
-          <p className="font-medium text-slate-900">Todo en orden</p>
-          <p className="text-sm text-slate-500 mt-1">Ningún medicamento requiere atención.</p>
-        </Card>
-      ) : (
-        <EmptyState />
-      )}
-
-      {/* Quick links */}
-      {medications && medications.length > 0 && (
-        <div className="grid grid-cols-2 gap-3">
-          <Link
-            href="/inventory"
-            className="flex items-center justify-center gap-2 p-3 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-          >
-            Ver inventario
-          </Link>
-          <Link
-            href="/shopping"
-            className="flex items-center justify-center gap-2 p-3 rounded-xl border border-brand-200 bg-brand-50 text-sm font-medium text-brand-700 hover:bg-brand-100 transition-colors"
-          >
-            Lista de compras {shoppingList.length > 0 && `(${shoppingList.length})`}
+          <div className="rounded-xl p-3 bg-amber-50">
+            <PackageOpen className="w-4 h-4 text-amber-500 mb-1" />
+            <p className="text-2xl font-bold text-amber-900">{summary.outOfStockCount + summary.lowStockCount}</p>
+            <p className="text-xs text-slate-500 mt-0.5">Stock bajo</p>
+          </div>
+          <Link href="/shopping" className="rounded-xl p-3 bg-brand-50 block hover:bg-brand-100 transition-colors">
+            <ShoppingCart className="w-4 h-4 text-brand-500 mb-1" />
+            <p className="text-2xl font-bold text-brand-700">{shoppingList.length}</p>
+            <p className="text-xs text-slate-500 mt-0.5">Por comprar</p>
           </Link>
         </div>
       )}
-    </div>
-  )
-}
 
-function StatCard({ icon, value, label, color }: {
-  icon: React.ReactNode
-  value: number
-  label: string
-  color: 'red' | 'amber' | 'brand'
-}) {
-  const bg = { red: 'bg-red-50', amber: 'bg-amber-50', brand: 'bg-brand-50' }[color]
-  const text = { red: 'text-red-900', amber: 'text-amber-900', brand: 'text-brand-700' }[color]
+      {/* Search */}
+      {medications.length > 3 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="search"
+            placeholder="Buscar medicamento…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+        </div>
+      )}
 
-  return (
-    <div className={`rounded-xl p-3 ${bg}`}>
-      <div className="flex items-center gap-1 mb-1">{icon}</div>
-      <p className={`text-2xl font-bold ${text}`}>{value}</p>
-      <p className="text-xs text-slate-500 mt-0.5">{label}</p>
-    </div>
-  )
-}
-
-function EmptyState() {
-  return (
-    <div className="text-center py-12">
-      <div className="text-5xl mb-4">💊</div>
-      <h2 className="font-semibold text-slate-900 text-lg">Empieza tu botiquín</h2>
-      <p className="text-slate-500 text-sm mt-1 mb-6 max-w-xs mx-auto">
-        Agrega tus medicamentos para recibir alertas de vencimiento y stock bajo.
-      </p>
-      <Link
-        href="/inventory"
-        className="inline-flex items-center px-5 py-2.5 bg-brand-500 text-white text-sm font-medium rounded-xl hover:bg-brand-600 transition-colors"
-      >
-        Agregar medicamento
-      </Link>
+      {/* Medication cards */}
+      {loading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => <div key={i} className="h-28 bg-slate-100 rounded-2xl animate-pulse" />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12">
+          {medications.length === 0 ? (
+            <>
+              <div className="text-4xl mb-3">💊</div>
+              <p className="font-medium text-slate-700">Sin medicamentos aún</p>
+              <p className="text-sm text-slate-500 mt-1 mb-5">Agrega tu primer medicamento para empezar.</p>
+              <Button onClick={() => setShowAddForm(true)}>
+                <Plus className="w-4 h-4 mr-1" />
+                Agregar medicamento
+              </Button>
+            </>
+          ) : (
+            <p className="text-slate-500 text-sm">No se encontraron resultados para &quot;{search}&quot;</p>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((med) => (
+            <MedicationCard
+              key={med.id}
+              medication={med}
+              onRefresh={fetchMedications}
+              onDelete={handleDelete}
+              onAddStock={(id) => setAddStockFor(id)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
