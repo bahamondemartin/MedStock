@@ -8,7 +8,6 @@ import { MedicationCard } from '@/components/medications/MedicationCard'
 import { AddMedicationForm } from '@/components/medications/AddMedicationForm'
 import { AddStockForm } from '@/components/medications/AddStockForm'
 import { computeAlertSummary } from '@/lib/alerts'
-import { createClient } from '@/lib/supabase/client'
 import type { MedicationSummary } from '@/lib/supabase/types'
 
 export default function HomePage() {
@@ -38,16 +37,6 @@ export default function HomePage() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
-  // Real-time sync: refresh when any family member changes stock or medications
-  useEffect(() => {
-    const supabase = createClient()
-    const channel = supabase
-      .channel('botiquin-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'med_stock_items' }, fetchAll)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'med_medications' }, fetchAll)
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [fetchAll])
 
   async function togglePin(id: string, pinned: boolean) {
     const method = pinned ? 'DELETE' : 'POST'
