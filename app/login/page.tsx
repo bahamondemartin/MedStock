@@ -47,9 +47,19 @@ function LoginForm() {
     if (password !== confirmPassword) { setError('Las contraseñas no coinciden.'); return }
     setLoading(true)
     setError(null)
-    const { data, error } = await supabase.auth.signUp({ email, password })
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: `${location.origin}/auth/callback` },
+    })
     if (error) {
-      setError(error.message)
+      if (error.message.toLowerCase().includes('already registered') || error.message.toLowerCase().includes('already been registered')) {
+        setError('Este email ya tiene una cuenta. Usa "Iniciar sesión" o recupera tu contraseña.')
+      } else if (error.message.toLowerCase().includes('load failed') || error.message.toLowerCase().includes('failed to fetch')) {
+        setError('Error de conexión. Intenta de nuevo.')
+      } else {
+        setError(error.message)
+      }
     } else if (data.session) {
       window.location.href = '/home'
     } else {
