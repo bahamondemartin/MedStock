@@ -6,7 +6,6 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import type { Prescription, PrescriptionMedItem } from '@/lib/supabase/types'
 
-/** Returns the medications list, falling back to legacy single-med fields */
 function getMedications(p: Prescription): PrescriptionMedItem[] {
   if (p.medications && p.medications.length > 0) return p.medications
   return [{ medication_id: p.medication_id, medication_name: p.medication_name, dose: p.dose }]
@@ -48,8 +47,8 @@ function addDays(dateStr: string, days: number): string {
   return d.toISOString().slice(0, 10)
 }
 
-function toMin(time: string) {
-  const [h, m] = time.split(':').map(Number)
+function toMin(t: string) {
+  const [h, m] = t.split(':').map(Number)
   return h * 60 + m
 }
 
@@ -64,45 +63,62 @@ function suggestTimes(frequencyHours: number, existingTimes: string[]): string[]
   const stepMin = frequencyHours * 60
   const existingMin = existingTimes.map(toMin)
 
-  function buildFromBase(base: number): string[] {
-    return Array.from({ length: dosesPerDay }, (_, i) => fromMin(base + i * stepMin)).sort()
-  }
+  const buildFromBase = (base: number) =>
+    Array.from({ length: dosesPerDay }, (_, i) => fromMin(base + i * stepMin)).sort()
 
   if (existingMin.length === 0) return buildFromBase(8 * 60)
 
-  function score(base: number): number {
-    return Array.from({ length: dosesPerDay }, (_, i) => (base + i * stepMin) % 1440)
+  const score = (base: number) =>
+    Array.from({ length: dosesPerDay }, (_, i) => (base + i * stepMin) % 1440)
       .filter(t => existingMin.some(e => Math.min(Math.abs(e - t), 1440 - Math.abs(e - t)) <= 30))
       .length
-  }
 
-  let bestBase = 8 * 60
-  let bestScore = -1
+  let bestBase = 8 * 60, bestScore = -1
   for (let base = 0; base < stepMin; base += 15) {
     const s = score(base)
-    const distTo8 = Math.min(Math.abs(base - 480), stepMin - Math.abs(base - 480))
-    const bestDistTo8 = Math.min(Math.abs(bestBase - 480), stepMin - Math.abs(bestBase - 480))
-    if (s > bestScore || (s === bestScore && distTo8 < bestDistTo8)) {
-      bestScore = s
-      bestBase = base
-    }
+    const d = Math.min(Math.abs(base - 480), stepMin - Math.abs(base - 480))
+    const bd = Math.min(Math.abs(bestBase - 480), stepMin - Math.abs(bestBase - 480))
+    if (s > bestScore || (s === bestScore && d < bd)) { bestScore = s; bestBase = base }
   }
   return buildFromBase(bestBase)
 }
 
-interface MedEntry { medication_id: string; medication_name: string; dose: string }
+/** Generate a combined schedule from multiple medications' frequencies.
+ *  Each subsequent medication aligns with already-suggested times to maximise overlap. */
+function generateCombined(entries: MedEntry[], existingTimes: string[]): string[] {
+  const all = new Set<string>()
+  for (const e of entries) {
+    const freq = typeof e.frequency_hours === 'number' && e.frequency_hours > 0 ? e.frequency_hours : 0
+    if (!freq || freq > 24) continue
+    suggestTimes(freq, [...existingTimes, ...all]).forEach(t => all.add(t))
+  }
+  return [...all].sort()
+}
+
+interface MedEntry {
+  medication_id: string
+  medication_name: string
+  dose: string
+  frequency_hours: number | ''
+  duration_days: number | ''
+}
 
 function MedEntryRow({
-  entry, idx, medications, showRemove,
-  onChange, onRemove,
+  entry, idx, startDate, medications, showRemove, onChange, onRemove,
 }: {
   entry: MedEntry
   idx: number
+  startDate: string
   medications: { id: string; name: string }[]
   showRemove: boolean
-  onChange: (idx: number, key: keyof MedEntry, value: string) => void
+  onChange: (idx: number, key: keyof MedEntry, value: string | number | '') => void
   onRemove: (idx: number) => void
 }) {
+  const dosesPerDay = typeof entry.frequency_hours === 'number' && entry.frequency_hours > 0
+    ? Math.max(1, Math.floor(24 / entry.frequency_hours)) : null
+  const endDate = typeof entry.duration_days === 'number' && entry.duration_days > 0
+    ? addDays(startDate, entry.duration_days) : null
+
   return (
     <div className="rounded-xl border border-slate-200 p-3 space-y-2 bg-slate-50/50">
       <div className="flex items-center justify-between">
@@ -113,6 +129,7 @@ function MedEntryRow({
           </button>
         )}
       </div>
+
       {medications.length > 0 && (
         <select
           value={entry.medication_id}
@@ -123,18 +140,53 @@ function MedEntryRow({
           {medications.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
       )}
+
       <input
         value={entry.medication_name}
         onChange={(e) => onChange(idx, 'medication_name', e.target.value)}
         placeholder="Nombre del medicamento"
         className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
       />
+
       <input
         value={entry.dose}
         onChange={(e) => onChange(idx, 'dose', e.target.value)}
         placeholder="Dosis (ej: 1 comprimido, 5ml)"
         className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
       />
+
+      {/* Frequency + duration per medication */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-slate-500 whitespace-nowrap">Cada</span>
+        <input
+          type="number"
+          min={1}
+          max={24}
+          value={entry.frequency_hours}
+          onChange={(e) => onChange(idx, 'frequency_hours', e.target.value === '' ? '' : parseInt(e.target.value))}
+          placeholder="—"
+          className="w-14 px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-center"
+        />
+        <span className="text-xs text-slate-500">h</span>
+        <span className="text-xs text-slate-300">·</span>
+        <input
+          type="number"
+          min={0}
+          value={entry.duration_days}
+          onChange={(e) => onChange(idx, 'duration_days', e.target.value === '' ? '' : parseInt(e.target.value))}
+          placeholder="—"
+          className="w-14 px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-center"
+        />
+        <span className="text-xs text-slate-500 whitespace-nowrap">días</span>
+      </div>
+
+      {(dosesPerDay || endDate) && (
+        <p className="text-xs text-slate-400">
+          {dosesPerDay && <>{dosesPerDay} toma{dosesPerDay !== 1 ? 's' : ''}/día</>}
+          {dosesPerDay && endDate && ' · '}
+          {endDate && <>hasta {endDate}</>}
+        </p>
+      )}
     </div>
   )
 }
@@ -145,39 +197,39 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
   const [medications, setMedications] = useState<{ id: string; name: string }[]>([])
   const [familyMembers, setFamilyMembers] = useState<{ email: string }[]>([])
   const [existingPrescriptions, setExistingPrescriptions] = useState<Prescription[]>([])
-  const [frequencyHours, setFrequencyHours] = useState<number | ''>('')
   const [suggestedNote, setSuggestedNote] = useState(false)
-  const [medEntries, setMedEntries] = useState<MedEntry[]>([{ medication_id: '', medication_name: '', dose: '' }])
+  const [medEntries, setMedEntries] = useState<MedEntry[]>([
+    { medication_id: '', medication_name: '', dose: '', frequency_hours: '', duration_days: '' }
+  ])
   const [form, setForm] = useState({
     schedule_times: ['08:00'],
     start_date: new Date().toISOString().slice(0, 10),
-    duration_days: 7,
     notes: '',
     patient_name: 'Yo',
   })
 
   useEffect(() => {
-    fetch('/api/medications').then(r => r.json()).then(data => setMedications(data ?? []))
-    fetch('/api/prescriptions').then(r => r.json()).then(data => setExistingPrescriptions(data ?? []))
-    fetch('/api/family').then(r => r.json()).then(data => {
-      if (data?.members?.length > 1) setFamilyMembers(data.members.map((m: { email: string }) => ({ email: m.email })))
+    fetch('/api/medications').then(r => r.json()).then(d => setMedications(d ?? []))
+    fetch('/api/prescriptions').then(r => r.json()).then(d => setExistingPrescriptions(d ?? []))
+    fetch('/api/family').then(r => r.json()).then(d => {
+      if (d?.members?.length > 1) setFamilyMembers(d.members.map((m: { email: string }) => ({ email: m.email })))
     }).catch(() => {})
   }, [])
 
-  function updateMedEntry(idx: number, key: keyof MedEntry, value: string) {
+  function updateMedEntry(idx: number, key: keyof MedEntry, value: string | number | '') {
     setMedEntries(prev => prev.map((e, i) => {
       if (i !== idx) return e
       if (key === 'medication_id') {
         const med = medications.find(m => m.id === value)
-        return { ...e, medication_id: value, medication_name: med?.name ?? e.medication_name }
+        return { ...e, medication_id: value as string, medication_name: med?.name ?? e.medication_name }
       }
-      if (key === 'medication_name') return { ...e, medication_name: value, medication_id: '' }
+      if (key === 'medication_name') return { ...e, medication_name: value as string, medication_id: '' }
       return { ...e, [key]: value }
     }))
   }
 
   function addMedEntry() {
-    setMedEntries(prev => [...prev, { medication_id: '', medication_name: '', dose: '' }])
+    setMedEntries(prev => [...prev, { medication_id: '', medication_name: '', dose: '', frequency_hours: '', duration_days: '' }])
   }
 
   function removeMedEntry(idx: number) {
@@ -185,12 +237,11 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
   }
 
   function handleGenerate() {
-    if (!frequencyHours || (frequencyHours as number) <= 0) return
-    const allTimes = existingPrescriptions.flatMap(p => p.schedule_times)
-    const suggested = suggestTimes(frequencyHours as number, allTimes)
+    const existingTimes = existingPrescriptions.flatMap(p => p.schedule_times)
+    const suggested = generateCombined(medEntries, existingTimes)
     if (suggested.length) {
       setForm(f => ({ ...f, schedule_times: suggested }))
-      setSuggestedNote(allTimes.length > 0)
+      setSuggestedNote(true)
     }
   }
 
@@ -206,11 +257,7 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
 
   function setTime(idx: number, val: string) {
     setSuggestedNote(false)
-    setForm(f => {
-      const times = [...f.schedule_times]
-      times[idx] = val
-      return { ...f, schedule_times: times }
-    })
+    setForm(f => { const t = [...f.schedule_times]; t[idx] = val; return { ...f, schedule_times: t } })
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -222,7 +269,10 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
     setLoading(true)
     setError(null)
     try {
-      const end_date = form.duration_days > 0 ? addDays(form.start_date, form.duration_days) : null
+      const maxDuration = validMeds.reduce((mx, m) =>
+        Math.max(mx, typeof m.duration_days === 'number' ? m.duration_days : 0), 0)
+      const end_date = maxDuration > 0 ? addDays(form.start_date, maxDuration) : null
+
       const res = await fetch('/api/prescriptions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -231,9 +281,11 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
             medication_id: m.medication_id || null,
             medication_name: m.medication_name.trim(),
             dose: m.dose.trim(),
+            frequency_hours: typeof m.frequency_hours === 'number' && m.frequency_hours > 0 ? m.frequency_hours : null,
+            duration_days: typeof m.duration_days === 'number' && m.duration_days > 0 ? m.duration_days : null,
           })),
           schedule_times: [...form.schedule_times].sort(),
-          frequency_hours: frequencyHours || null,
+          frequency_hours: null,
           start_date: form.start_date,
           end_date,
           notes: form.notes || null,
@@ -250,7 +302,7 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
   }
 
   const patientOptions = ['Yo', ...familyMembers.map(m => m.email)]
-  const dosesPerDay = frequencyHours ? Math.max(1, Math.floor(24 / (frequencyHours as number))) : null
+  const canGenerate = medEntries.some(e => typeof e.frequency_hours === 'number' && e.frequency_hours > 0)
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -275,6 +327,17 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
         )}
       </div>
 
+      {/* Start date */}
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1">Fecha de inicio</label>
+        <input
+          type="date"
+          value={form.start_date}
+          onChange={(e) => setForm(f => ({ ...f, start_date: e.target.value }))}
+          className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+        />
+      </div>
+
       {/* Medications list */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-2">Medicamentos *</label>
@@ -284,6 +347,7 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
               key={idx}
               entry={entry}
               idx={idx}
+              startDate={form.start_date}
               medications={medications}
               showRemove={medEntries.length > 1}
               onChange={updateMedEntry}
@@ -301,47 +365,28 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
         </button>
       </div>
 
-      {/* Frequency */}
+      {/* Generate proposal */}
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Frecuencia</label>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-slate-500 whitespace-nowrap">Cada</span>
-          <input
-            type="number"
-            min={1}
-            max={24}
-            value={frequencyHours}
-            onChange={(e) => {
-              setFrequencyHours(e.target.value === '' ? '' : parseInt(e.target.value) as number)
-              setSuggestedNote(false)
-            }}
-            placeholder="—"
-            className="w-20 px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-center"
-          />
-          <span className="text-sm text-slate-500 whitespace-nowrap">horas</span>
-          <button
-            type="button"
-            onClick={handleGenerate}
-            disabled={!frequencyHours}
-            className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand-500 text-white text-xs font-semibold hover:bg-brand-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <Wand2 className="w-3.5 h-3.5" />
-            Generar propuesta
-          </button>
-        </div>
-        {dosesPerDay && (
-          <p className="text-xs text-slate-400 mt-1">{dosesPerDay} toma{dosesPerDay !== 1 ? 's' : ''} por día</p>
+        <button
+          type="button"
+          onClick={handleGenerate}
+          disabled={!canGenerate}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border-2 border-dashed border-brand-300 text-brand-600 text-sm font-semibold hover:bg-brand-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        >
+          <Wand2 className="w-4 h-4" />
+          Generar propuesta de horarios
+        </button>
+        {suggestedNote && (
+          <p className="text-xs text-brand-600 bg-brand-50 rounded-lg px-3 py-2 mt-2">
+            Horario optimizado considerando las frecuencias de cada medicamento y tus tratamientos activos.
+            Puedes ajustarlo manualmente.
+          </p>
         )}
       </div>
 
       {/* Times */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Horarios *</label>
-        {suggestedNote && (
-          <p className="text-xs text-brand-600 bg-brand-50 rounded-lg px-3 py-2 mb-2">
-            Horario sugerido para coincidir con tus tratamientos activos. Puedes ajustarlo manualmente.
-          </p>
-        )}
         <div className="space-y-2">
           {form.schedule_times.map((t, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -365,34 +410,8 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
           className="mt-2 text-xs text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1"
         >
           <Plus className="w-3.5 h-3.5" />
-          Agregar horario
+          Agregar horario manualmente
         </button>
-      </div>
-
-      {/* Dates */}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Fecha de inicio</label>
-          <input
-            type="date"
-            value={form.start_date}
-            onChange={(e) => setForm(f => ({ ...f, start_date: e.target.value }))}
-            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Duración (días)</label>
-          <input
-            type="number"
-            min={0}
-            value={form.duration_days}
-            onChange={(e) => setForm(f => ({ ...f, duration_days: parseInt(e.target.value) || 0 }))}
-            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
-          {form.duration_days > 0 && (
-            <p className="text-xs text-slate-400 mt-1">Fin: {addDays(form.start_date, form.duration_days)}</p>
-          )}
-        </div>
       </div>
 
       {/* Notes */}
@@ -485,10 +504,7 @@ export default function PrescriptionsPage() {
             {schedule.map((entry, i) => {
               const meds = getMedications(entry.prescription)
               return (
-                <div
-                  key={i}
-                  className={`px-4 py-3 flex items-center gap-3 ${entry.isPast ? 'opacity-40' : ''}`}
-                >
+                <div key={i} className={`px-4 py-3 flex items-center gap-3 ${entry.isPast ? 'opacity-40' : ''}`}>
                   <div className={`w-14 text-center rounded-lg py-1.5 flex-shrink-0 ${
                     entry.isNext ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-600'
                   }`}>
@@ -543,15 +559,22 @@ export default function PrescriptionsPage() {
                 <Card key={p.id}>
                   <div className="p-4">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 space-y-0.5">
                         {meds.map((m, i) => (
                           <div key={i} className="flex items-baseline gap-1.5 flex-wrap">
                             <p className="font-semibold text-slate-900">{m.medication_name}</p>
                             <p className="text-sm text-slate-500">{m.dose}</p>
+                            {m.frequency_hours && (
+                              <span className="text-xs text-slate-400">· c/{m.frequency_hours}h</span>
+                            )}
+                            {m.duration_days && (
+                              <span className="text-xs text-slate-400">· {m.duration_days}d</span>
+                            )}
                           </div>
                         ))}
-                        {p.frequency_hours && (
-                          <p className="text-xs text-slate-400 mt-0.5">Cada {p.frequency_hours}h</p>
+                        {/* Fallback for old records with shared frequency_hours */}
+                        {!meds.some(m => m.frequency_hours) && p.frequency_hours && (
+                          <p className="text-xs text-slate-400">Cada {p.frequency_hours}h</p>
                         )}
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
@@ -575,7 +598,6 @@ export default function PrescriptionsPage() {
                       </div>
                     </div>
 
-                    {/* Time buttons */}
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {p.schedule_times.map((t) => {
                         const checked = checkedTimes[p.id]?.has(t)

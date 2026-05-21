@@ -64,6 +64,8 @@ export interface PrescriptionMedItem {
   medication_id: string | null
   medication_name: string
   dose: string
+  frequency_hours?: number | null
+  duration_days?: number | null
 }
 
 export interface Prescription {
