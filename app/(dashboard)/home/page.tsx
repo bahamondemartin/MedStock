@@ -16,23 +16,45 @@ export default function HomePage() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [addStockFor, setAddStockFor] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set())
 
-  const fetchMedications = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/medications')
-      if (res.ok) setMedications(await res.json())
+      const [medsRes, pinsRes] = await Promise.all([
+        fetch('/api/medications'),
+        fetch('/api/shopping-pins'),
+      ])
+      if (medsRes.ok) setMedications(await medsRes.json())
+      if (pinsRes.ok) {
+        const pins: { medication_id: string }[] = await pinsRes.json()
+        setPinnedIds(new Set(pins.map(p => p.medication_id)))
+      }
     } finally {
       setLoading(false)
     }
   }, [])
 
-  useEffect(() => { fetchMedications() }, [fetchMedications])
+  useEffect(() => { fetchAll() }, [fetchAll])
+
+  async function togglePin(id: string, pinned: boolean) {
+    const method = pinned ? 'DELETE' : 'POST'
+    await fetch('/api/shopping-pins', {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ medication_id: id }),
+    })
+    setPinnedIds(prev => {
+      const s = new Set(prev)
+      pinned ? s.delete(id) : s.add(id)
+      return s
+    })
+  }
 
   async function handleDelete(id: string) {
     if (!confirm('¿Eliminar este medicamento y todo su stock?')) return
     await fetch(`/api/medications/${id}`, { method: 'DELETE' })
-    await fetchMedications()
+    await fetchAll()
   }
 
   const summary = computeAlertSummary(medications)
@@ -49,7 +71,7 @@ export default function HomePage() {
         <Card className="p-5">
           <AddStockForm
             medicationId={addStockFor}
-            onSuccess={() => { setAddStockFor(null); fetchMedications() }}
+            onSuccess={() => { setAddStockFor(null); fetchAll() }}
             onCancel={() => setAddStockFor(null)}
           />
         </Card>
@@ -63,7 +85,7 @@ export default function HomePage() {
         <h1 className="text-xl font-bold text-slate-900">Nuevo medicamento</h1>
         <Card className="p-5">
           <AddMedicationForm
-            onSuccess={() => { setShowAddForm(false); fetchMedications() }}
+            onSuccess={() => { setShowAddForm(false); fetchAll() }}
             onCancel={() => setShowAddForm(false)}
           />
         </Card>
@@ -144,9 +166,11 @@ export default function HomePage() {
             <MedicationCard
               key={med.id}
               medication={med}
-              onRefresh={fetchMedications}
+              onRefresh={fetchAll}
               onDelete={handleDelete}
               onAddStock={(id) => setAddStockFor(id)}
+              isPinned={pinnedIds.has(med.id)}
+              onTogglePin={togglePin}
             />
           ))}
         </div>

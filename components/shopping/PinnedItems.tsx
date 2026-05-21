@@ -1,32 +1,19 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { ShoppingCart, X } from 'lucide-react'
 import type { MedicationSummary } from '@/lib/supabase/types'
 
-export function PinnedItems() {
-  const [pinnedIds, setPinnedIds] = useState<string[]>([])
-  const [meds, setMeds] = useState<MedicationSummary[]>([])
+export function PinnedItems({ initialMeds }: { initialMeds: MedicationSummary[] }) {
+  const [meds, setMeds] = useState(initialMeds)
 
-  useEffect(() => {
-    try {
-      const ids: string[] = JSON.parse(localStorage.getItem('pinned_shopping') ?? '[]')
-      setPinnedIds(ids)
-      if (ids.length > 0) {
-        fetch('/api/medications').then(r => r.json()).then((all: MedicationSummary[]) => {
-          setMeds(all.filter(m => ids.includes(m.id)))
-        })
-      }
-    } catch { /* ignore */ }
-  }, [])
-
-  function unpin(id: string) {
-    try {
-      const next = pinnedIds.filter(i => i !== id)
-      localStorage.setItem('pinned_shopping', JSON.stringify(next))
-      setPinnedIds(next)
-      setMeds(prev => prev.filter(m => m.id !== id))
-    } catch { /* ignore */ }
+  async function unpin(id: string) {
+    await fetch('/api/shopping-pins', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ medication_id: id }),
+    })
+    setMeds(prev => prev.filter(m => m.id !== id))
   }
 
   if (meds.length === 0) return null
