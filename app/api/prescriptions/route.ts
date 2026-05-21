@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   const body = await request.json()
   const { medications, schedule_times, frequency_hours, start_date, end_date, notes, patient_name } = body
 
-  const meds: { medication_id: string | null; medication_name: string; dose: string }[] =
+  const meds: { medication_id: string | null; medication_name: string; dose: string; frequency_hours?: number | null; duration_days?: number | null }[] =
     Array.isArray(medications) && medications.length > 0 ? medications : []
 
   if (!meds.length || !meds[0].medication_name?.trim() || !schedule_times?.length) {
@@ -44,6 +44,8 @@ export async function POST(request: Request) {
         medication_id: m.medication_id ?? null,
         medication_name: m.medication_name.trim(),
         dose: m.dose?.trim() ?? '',
+        frequency_hours: m.frequency_hours ?? null,
+        duration_days: m.duration_days ?? null,
       })),
       schedule_times,
       frequency_hours: frequency_hours ?? null,
