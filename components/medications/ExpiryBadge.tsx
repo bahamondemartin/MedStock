@@ -18,5 +18,8 @@ export function ExpiryBadge({ status, nextExpiry }: { status: ExpiryStatus; next
   if (status === 'warning') {
     return <Badge variant="amber">Vence en {days}d</Badge>
   }
+  if (status === 'soon') {
+    return <Badge variant="slate">Vence en {days}d</Badge>
+  }
   return <Badge variant="green">{formatted}</Badge>
 }

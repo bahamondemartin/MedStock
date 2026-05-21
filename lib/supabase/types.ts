@@ -1,6 +1,6 @@
 export type Category = 'analgésico' | 'antibiótico' | 'antiácido' | 'antihistamínico' | 'otro'
 export type Unit = 'comprimidos' | 'cápsulas' | 'ml' | 'sobres' | 'unidades'
-export type ExpiryStatus = 'expired' | 'critical' | 'warning' | 'ok'
+export type ExpiryStatus = 'expired' | 'critical' | 'warning' | 'soon' | 'ok'
 export type StockStatus = 'out_of_stock' | 'low_stock' | 'ok'
 export type AlertType = 'expiry' | 'low_stock' | 'out_of_stock'
 export type AlertSeverity = 'critical' | 'warning' | 'info'

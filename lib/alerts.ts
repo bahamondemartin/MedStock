@@ -5,6 +5,7 @@ export interface AlertInfo {
   hasAlerts: boolean
   criticalCount: number
   warningCount: number
+  soonCount: number
   expiredCount: number
   outOfStockCount: number
   lowStockCount: number
@@ -16,6 +17,7 @@ export function getExpiryStatus(nextExpiry: string | null): ExpiryStatus {
   if (days < 0) return 'expired'
   if (days <= 7) return 'critical'
   if (days <= 30) return 'warning'
+  if (days <= 60) return 'soon'
   return 'ok'
 }
 
@@ -33,6 +35,7 @@ export function getDaysUntilExpiry(nextExpiry: string | null): number | null {
 export function computeAlertSummary(medications: MedicationSummary[]): AlertInfo {
   let criticalCount = 0
   let warningCount = 0
+  let soonCount = 0
   let expiredCount = 0
   let outOfStockCount = 0
   let lowStockCount = 0
@@ -41,15 +44,17 @@ export function computeAlertSummary(medications: MedicationSummary[]): AlertInfo
     if (med.expiry_status === 'expired') expiredCount++
     else if (med.expiry_status === 'critical') criticalCount++
     else if (med.expiry_status === 'warning') warningCount++
+    else if (med.expiry_status === 'soon') soonCount++
 
     if (med.stock_status === 'out_of_stock') outOfStockCount++
     else if (med.stock_status === 'low_stock') lowStockCount++
   }
 
   return {
-    hasAlerts: criticalCount + warningCount + expiredCount + outOfStockCount + lowStockCount > 0,
+    hasAlerts: criticalCount + warningCount + soonCount + expiredCount + outOfStockCount + lowStockCount > 0,
     criticalCount,
     warningCount,
+    soonCount,
     expiredCount,
     outOfStockCount,
     lowStockCount,
@@ -63,7 +68,7 @@ export function getMedicationPriority(med: MedicationSummary): AlertPriority | n
     med.stock_status === 'out_of_stock' || med.expiry_status === 'expired'
   const isThisWeek =
     med.expiry_status === 'critical' || med.stock_status === 'low_stock'
-  const isRecommended = med.expiry_status === 'warning'
+  const isRecommended = med.expiry_status === 'warning' || med.expiry_status === 'soon'
 
   if (isUrgent) return 'urgent'
   if (isThisWeek) return 'this_week'
