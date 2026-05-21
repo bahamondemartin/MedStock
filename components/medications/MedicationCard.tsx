@@ -82,7 +82,7 @@ export function MedicationCard({ medication: med, onRefresh, onDelete, onAddStoc
 
   return (
     <Card className={isAlert ? 'border-l-4 border-l-amber-400' : ''}>
-      <div className="p-4">
+      <div className="p-4 cursor-pointer" onClick={toggleExpand}>
         {/* Header row */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
@@ -97,7 +97,7 @@ export function MedicationCard({ medication: med, onRefresh, onDelete, onAddStoc
             )}
           </div>
           <button
-            onClick={toggleExpand}
+            onClick={(e) => { e.stopPropagation(); toggleExpand() }}
             className="text-slate-400 hover:text-slate-600 p-1 flex-shrink-0"
           >
             {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -111,7 +111,7 @@ export function MedicationCard({ medication: med, onRefresh, onDelete, onAddStoc
         </div>
 
         {/* Quick consume buttons */}
-        <div className="flex items-center gap-2 mt-3">
+        <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
           {[1, 2, 3].map((n) => (
             <button
               key={n}

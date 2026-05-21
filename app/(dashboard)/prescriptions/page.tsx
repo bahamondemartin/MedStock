@@ -38,22 +38,35 @@ function todaySchedule(prescriptions: Prescription[], now: Date) {
   return entries
 }
 
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T00:00:00')
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
 function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () => void }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [medications, setMedications] = useState<{ id: string; name: string }[]>([])
+  const [familyMembers, setFamilyMembers] = useState<{ email: string }[]>([])
   const [form, setForm] = useState({
     medication_id: '',
     medication_name: '',
     dose: '',
     schedule_times: ['08:00'],
     start_date: new Date().toISOString().slice(0, 10),
-    end_date: '',
+    duration_days: 7,
     notes: '',
+    patient_name: 'Yo',
   })
 
   useEffect(() => {
     fetch('/api/medications').then(r => r.json()).then(data => setMedications(data ?? []))
+    fetch('/api/family').then(r => r.json()).then(data => {
+      if (data?.members?.length > 1) {
+        setFamilyMembers(data.members.map((m: { email: string }) => ({ email: m.email })))
+      }
+    }).catch(() => {})
   }, [])
 
   function addTime() {
@@ -85,6 +98,7 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
     setLoading(true)
     setError(null)
     try {
+      const end_date = form.duration_days > 0 ? addDays(form.start_date, form.duration_days) : null
       const res = await fetch('/api/prescriptions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -94,8 +108,9 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
           dose: form.dose,
           schedule_times: [...form.schedule_times].sort(),
           start_date: form.start_date,
-          end_date: form.end_date || null,
+          end_date,
           notes: form.notes || null,
+          patient_name: form.patient_name || 'Yo',
         }),
       })
       if (!res.ok) { const d = await res.json(); throw new Error(d.error) }
@@ -107,8 +122,32 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
     }
   }
 
+  const patientOptions = ['Yo', ...familyMembers.map(m => m.email)]
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Patient */}
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1">Para quién *</label>
+        {patientOptions.length > 1 ? (
+          <select
+            value={form.patient_name}
+            onChange={(e) => setForm(f => ({ ...f, patient_name: e.target.value }))}
+            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+          >
+            {patientOptions.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        ) : (
+          <input
+            value={form.patient_name}
+            onChange={(e) => setForm(f => ({ ...f, patient_name: e.target.value }))}
+            placeholder="Ej: Yo, Mamá, Juan"
+            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+        )}
+      </div>
+
+      {/* Medication */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Medicamento *</label>
         {medications.length > 0 && (
@@ -129,6 +168,7 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
         />
       </div>
 
+      {/* Dose */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Dosis *</label>
         <input
@@ -139,6 +179,7 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
         />
       </div>
 
+      {/* Times */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-2">Horarios *</label>
         <div className="space-y-2">
@@ -168,9 +209,10 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
         </button>
       </div>
 
+      {/* Dates */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Inicio</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Fecha de inicio</label>
           <input
             type="date"
             value={form.start_date}
@@ -179,16 +221,23 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Fin (opcional)</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Duración (días)</label>
           <input
-            type="date"
-            value={form.end_date}
-            onChange={(e) => setForm(f => ({ ...f, end_date: e.target.value }))}
+            type="number"
+            min={0}
+            value={form.duration_days}
+            onChange={(e) => setForm(f => ({ ...f, duration_days: parseInt(e.target.value) || 0 }))}
             className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
+          {form.duration_days > 0 && (
+            <p className="text-xs text-slate-400 mt-1">
+              Fin: {addDays(form.start_date, form.duration_days)}
+            </p>
+          )}
         </div>
       </div>
 
+      {/* Notes */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Notas (opcional)</label>
         <input
@@ -214,6 +263,7 @@ export default function PrescriptionsPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [checkedTimes, setCheckedTimes] = useState<Record<string, Set<string>>>({})
   const [now] = useState(() => new Date())
 
   const load = useCallback(async () => {
@@ -229,9 +279,17 @@ export default function PrescriptionsPage() {
   useEffect(() => { load() }, [load])
 
   async function deletePrescription(id: string) {
-    if (!confirm('¿Eliminar esta tratamiento?')) return
+    if (!confirm('¿Eliminar este tratamiento?')) return
     await fetch(`/api/prescriptions/${id}`, { method: 'DELETE' })
     await load()
+  }
+
+  function toggleTime(prescriptionId: string, time: string) {
+    setCheckedTimes(prev => {
+      const s = new Set(prev[prescriptionId] ?? [])
+      s.has(time) ? s.delete(time) : s.add(time)
+      return { ...prev, [prescriptionId]: s }
+    })
   }
 
   const schedule = todaySchedule(prescriptions, now)
@@ -239,7 +297,7 @@ export default function PrescriptionsPage() {
   if (showForm) {
     return (
       <div className="space-y-5">
-        <h1 className="text-xl font-bold text-slate-900">Nueva tratamiento</h1>
+        <h1 className="text-xl font-bold text-slate-900">Nuevo tratamiento</h1>
         <Card className="p-5">
           <AddPrescriptionForm
             onSuccess={() => { setShowForm(false); load() }}
@@ -257,7 +315,7 @@ export default function PrescriptionsPage() {
         <h1 className="text-xl font-bold text-slate-900">Tratamientos</h1>
         <Button size="sm" onClick={() => setShowForm(true)} className="ml-auto">
           <Plus className="w-4 h-4 mr-1" />
-          Nueva tratamiento
+          Nuevo tratamiento
         </Button>
       </div>
 
@@ -280,6 +338,11 @@ export default function PrescriptionsPage() {
                   <p className="text-sm font-semibold text-slate-900 truncate">{entry.prescription.medication_name}</p>
                   <p className="text-xs text-slate-400">{entry.prescription.dose}</p>
                 </div>
+                {entry.prescription.patient_name && entry.prescription.patient_name !== 'Yo' && (
+                  <span className="text-xs bg-slate-100 text-slate-500 font-medium px-2 py-0.5 rounded-full flex-shrink-0">
+                    {entry.prescription.patient_name}
+                  </span>
+                )}
                 {entry.isNext && (
                   <span className="text-xs bg-brand-50 text-brand-600 font-medium px-2 py-0.5 rounded-full flex-shrink-0">
                     {timeLabel(entry.time, now) ?? 'Próxima'}
@@ -302,11 +365,11 @@ export default function PrescriptionsPage() {
       ) : prescriptions.length === 0 ? (
         <div className="text-center py-12">
           <div className="text-4xl mb-3">📋</div>
-          <p className="font-medium text-slate-700">Sin tratamientos activas</p>
+          <p className="font-medium text-slate-700">Sin tratamientos activos</p>
           <p className="text-sm text-slate-500 mt-1 mb-5">Agrega un tratamiento para ver tu schedule diario.</p>
           <Button onClick={() => setShowForm(true)}>
             <Plus className="w-4 h-4 mr-1" />
-            Nueva tratamiento
+            Nuevo tratamiento
           </Button>
         </div>
       ) : (
@@ -322,6 +385,11 @@ export default function PrescriptionsPage() {
                       <p className="text-sm text-slate-500">{p.dose}</p>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
+                      {p.patient_name && p.patient_name !== 'Yo' && (
+                        <span className="text-xs bg-slate-100 text-slate-500 font-medium px-2 py-0.5 rounded-full">
+                          {p.patient_name}
+                        </span>
+                      )}
                       <button
                         onClick={() => deletePrescription(p.id)}
                         className="text-slate-300 hover:text-red-500 transition-colors p-1"
@@ -336,14 +404,28 @@ export default function PrescriptionsPage() {
                       </button>
                     </div>
                   </div>
+
+                  {/* Time buttons — click to mark with strikethrough */}
                   <div className="flex flex-wrap gap-1.5 mt-2">
-                    {p.schedule_times.map((t) => (
-                      <span key={t} className="text-xs bg-brand-50 text-brand-600 font-medium px-2 py-0.5 rounded-full">
-                        {t}
-                      </span>
-                    ))}
+                    {p.schedule_times.map((t) => {
+                      const checked = checkedTimes[p.id]?.has(t)
+                      return (
+                        <button
+                          key={t}
+                          onClick={() => toggleTime(p.id, t)}
+                          className={`text-xs font-medium px-2 py-0.5 rounded-full transition-colors ${
+                            checked
+                              ? 'bg-slate-100 text-slate-400 line-through'
+                              : 'bg-brand-50 text-brand-600 hover:bg-brand-100'
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
+
                 {expanded === p.id && (
                   <div className="border-t border-slate-100 px-4 py-3 space-y-1 text-xs text-slate-500">
                     <p>Inicio: <strong className="text-slate-700">{p.start_date}</strong></p>

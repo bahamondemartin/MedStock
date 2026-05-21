@@ -71,6 +71,7 @@ export interface Prescription {
   end_date: string | null
   active: boolean
   notes: string | null
+  patient_name: string | null
   created_at: string
 }
 
