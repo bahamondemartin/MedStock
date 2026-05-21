@@ -1,16 +1,14 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { AlertTriangle, PackageOpen, ShoppingCart, Plus, Search } from 'lucide-react'
+import { AlertTriangle, PackageOpen, CalendarClock, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { MedicationCard } from '@/components/medications/MedicationCard'
 import { AddMedicationForm } from '@/components/medications/AddMedicationForm'
 import { AddStockForm } from '@/components/medications/AddStockForm'
-import { buildShoppingList } from '@/lib/shopping'
 import { computeAlertSummary } from '@/lib/alerts'
 import type { MedicationSummary } from '@/lib/supabase/types'
-import Link from 'next/link'
 
 export default function HomePage() {
   const [medications, setMedications] = useState<MedicationSummary[]>([])
@@ -38,7 +36,6 @@ export default function HomePage() {
   }
 
   const summary = computeAlertSummary(medications)
-  const shoppingList = buildShoppingList(medications)
   const filtered = search.trim()
     ? medications.filter((m) => m.name.toLowerCase().includes(search.toLowerCase()))
     : medications
@@ -98,11 +95,11 @@ export default function HomePage() {
             <p className="text-2xl font-bold text-amber-900">{summary.outOfStockCount + summary.lowStockCount}</p>
             <p className="text-xs text-slate-500 mt-0.5">Stock bajo</p>
           </div>
-          <Link href="/shopping" className="rounded-xl p-3 bg-brand-50 block hover:bg-brand-100 transition-colors">
-            <ShoppingCart className="w-4 h-4 text-brand-500 mb-1" />
-            <p className="text-2xl font-bold text-brand-700">{shoppingList.length}</p>
-            <p className="text-xs text-slate-500 mt-0.5">Por comprar</p>
-          </Link>
+          <div className="rounded-xl p-3 bg-slate-50">
+            <CalendarClock className="w-4 h-4 text-slate-500 mb-1" />
+            <p className="text-2xl font-bold text-slate-700">{summary.warningCount + summary.soonCount}</p>
+            <p className="text-xs text-slate-500 mt-0.5">Por vencer</p>
+          </div>
         </div>
       )}
 
