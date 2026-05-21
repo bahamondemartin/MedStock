@@ -53,10 +53,25 @@ export interface MedicationSummary {
   category: Category | null
   unit: Unit
   min_stock: number
+  is_pediatric: boolean
   total_stock: number
   next_expiry: string | null
   expiry_status: ExpiryStatus
   stock_status: StockStatus
+}
+
+export interface Prescription {
+  id: string
+  user_id: string
+  medication_id: string | null
+  medication_name: string
+  dose: string
+  schedule_times: string[]
+  start_date: string
+  end_date: string | null
+  active: boolean
+  notes: string | null
+  created_at: string
 }
 
 export type FamilyRole = 'owner' | 'member'
