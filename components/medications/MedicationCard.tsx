@@ -177,18 +177,23 @@ export function MedicationCard({ medication: med, onRefresh, onDelete, onAddStoc
         </div>
 
         {/* Quick consume buttons */}
-        <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
-          {[1, 2, 3].map((n) => (
-            <button
-              key={n}
-              onClick={() => quickConsume(n)}
-              disabled={med.total_stock < n || consuming !== null}
-              className="flex-1 py-2 rounded-lg text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-brand-50 hover:text-brand-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              {consuming === n ? '…' : `-${n}`}
-            </button>
-          ))}
-        </div>
+        {(() => {
+          const amounts = med.unit === 'ml' ? [5, 10, 20] : [1, 2, 3]
+          return (
+            <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
+              {amounts.map((n) => (
+                <button
+                  key={n}
+                  onClick={() => quickConsume(n)}
+                  disabled={med.total_stock < n || consuming !== null}
+                  className="flex-1 py-2 rounded-lg text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-brand-50 hover:text-brand-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  {consuming === n ? '…' : `-${n}${med.unit === 'ml' ? 'ml' : ''}`}
+                </button>
+              ))}
+            </div>
+          )
+        })()}
 
         {consumeError && (
           <p className="text-xs text-red-500 mt-1.5">{consumeError}</p>
