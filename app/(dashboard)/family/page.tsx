@@ -119,6 +119,10 @@ export default function FamilyPage() {
       <div className="flex items-center gap-2">
         <Users className="w-5 h-5 text-brand-500" />
         <h1 className="text-xl font-bold text-slate-900">Familia</h1>
+        <Button size="sm" variant="secondary" onClick={() => setShowJoinModal(true)} className="ml-auto">
+          <UserPlus className="w-4 h-4 mr-1" />
+          Unirse
+        </Button>
       </div>
 
       {successMsg && (
