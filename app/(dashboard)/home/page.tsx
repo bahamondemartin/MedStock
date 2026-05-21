@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { AlertTriangle, PackageOpen, CalendarClock, Plus, Search } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { AlertTriangle, PackageOpen, CalendarClock, Plus, Search, ArrowDownUp } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { MedicationCard } from '@/components/medications/MedicationCard'
@@ -16,6 +16,9 @@ export default function HomePage() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [addStockFor, setAddStockFor] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [filterCategory, setFilterCategory] = useState<string | null>(null)
+  const [filterPediatric, setFilterPediatric] = useState<boolean | null>(null)
+  const [sortBy, setSortBy] = useState<'category' | 'stock'>('category')
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set())
 
   const fetchAll = useCallback(async () => {
@@ -59,9 +62,24 @@ export default function HomePage() {
   }
 
   const summary = computeAlertSummary(medications)
-  const filtered = search.trim()
-    ? medications.filter((m) => m.name.toLowerCase().includes(search.toLowerCase()))
-    : medications
+
+  const categories = useMemo(() =>
+    [...new Set(medications.map(m => m.category).filter(Boolean))].sort() as string[],
+    [medications]
+  )
+
+  const filtered = useMemo(() => {
+    let list = [...medications]
+    if (search.trim()) list = list.filter(m => m.name.toLowerCase().includes(search.toLowerCase()))
+    if (filterCategory) list = list.filter(m => m.category === filterCategory)
+    if (filterPediatric !== null) list = list.filter(m => m.is_pediatric === filterPediatric)
+    if (sortBy === 'stock') {
+      list.sort((a, b) => b.total_stock - a.total_stock)
+    } else {
+      list.sort((a, b) => (a.category ?? 'zzz').localeCompare(b.category ?? 'zzz') || a.name.localeCompare(b.name))
+    }
+    return list
+  }, [medications, search, filterCategory, filterPediatric, sortBy])
 
   if (addStockFor) {
     const med = medications.find((m) => m.id === addStockFor)
@@ -137,6 +155,65 @@ export default function HomePage() {
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
+        </div>
+      )}
+
+      {/* Filters */}
+      {medications.length > 0 && (
+        <div className="space-y-2">
+          {/* Category chips */}
+          {categories.length > 0 && (
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
+              <button
+                onClick={() => setFilterCategory(null)}
+                className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  filterCategory === null ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                Todas
+              </button>
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setFilterCategory(filterCategory === cat ? null : cat)}
+                  className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium capitalize transition-colors ${
+                    filterCategory === cat ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Pediatric filter + sort */}
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs font-medium">
+              {([null, false, true] as const).map((val, i) => {
+                const label = val === null ? 'Todos' : val ? 'Pediátrico' : 'Adulto'
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setFilterPediatric(filterPediatric === val ? null : val)}
+                    className={`px-3 py-1.5 transition-colors ${
+                      filterPediatric === val ? 'bg-brand-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+            <button
+              onClick={() => setSortBy(s => s === 'category' ? 'stock' : 'category')}
+              className={`ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                sortBy === 'stock' ? 'border-brand-300 bg-brand-50 text-brand-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <ArrowDownUp className="w-3.5 h-3.5" />
+              {sortBy === 'stock' ? 'Mayor stock' : 'Categoría'}
+            </button>
+          </div>
         </div>
       )}
 
