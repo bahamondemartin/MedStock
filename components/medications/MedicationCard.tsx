@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { Trash2, ChevronDown, ChevronUp, Plus, ArrowDownCircle, Package, Baby, Pencil, Check, X } from 'lucide-react'
+import { useState, useCallback, useEffect } from 'react'
+import { Trash2, ChevronDown, ChevronUp, Plus, ArrowDownCircle, Package, Baby, Pencil, Check, X, ShoppingCart } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { StockBadge } from './StockBadge'
@@ -38,6 +38,26 @@ export function MedicationCard({ medication: med, onRefresh, onDelete, onAddStoc
   const [lotSaving, setLotSaving] = useState(false)
 
   const isAlert = med.expiry_status !== 'ok' || med.stock_status !== 'ok'
+  const [pinnedToShopping, setPinnedToShopping] = useState(false)
+
+  useEffect(() => {
+    try {
+      const pinned: string[] = JSON.parse(localStorage.getItem('pinned_shopping') ?? '[]')
+      setPinnedToShopping(pinned.includes(med.id))
+    } catch { /* ignore */ }
+  }, [med.id])
+
+  function togglePinnedToShopping(e: React.MouseEvent) {
+    e.stopPropagation()
+    try {
+      const pinned: string[] = JSON.parse(localStorage.getItem('pinned_shopping') ?? '[]')
+      const next = pinnedToShopping
+        ? pinned.filter(id => id !== med.id)
+        : [...pinned, med.id]
+      localStorage.setItem('pinned_shopping', JSON.stringify(next))
+      setPinnedToShopping(!pinnedToShopping)
+    } catch { /* ignore */ }
+  }
 
   const loadLots = useCallback(async () => {
     setLotsLoading(true)
@@ -156,9 +176,22 @@ export function MedicationCard({ medication: med, onRefresh, onDelete, onAddStoc
         </div>
 
         {/* Badges */}
-        <div className="flex flex-wrap gap-1.5 mt-2">
+        <div className="flex flex-wrap gap-1.5 mt-2 items-center">
           <StockBadge status={med.stock_status} total={med.total_stock} unit={med.unit} />
           <ExpiryBadge status={med.expiry_status} nextExpiry={med.next_expiry} />
+          {(med.expiry_status === 'warning' || med.expiry_status === 'soon') && (
+            <button
+              onClick={togglePinnedToShopping}
+              className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full transition-colors ${
+                pinnedToShopping
+                  ? 'bg-brand-100 text-brand-700'
+                  : 'bg-slate-100 text-slate-500 hover:bg-brand-50 hover:text-brand-600'
+              }`}
+            >
+              {pinnedToShopping ? <Check className="w-3 h-3" /> : <ShoppingCart className="w-3 h-3" />}
+              {pinnedToShopping ? 'En compras' : '+ Compras'}
+            </button>
+          )}
         </div>
 
         {/* Quick consume buttons */}

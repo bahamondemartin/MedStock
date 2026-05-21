@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { buildShoppingList } from '@/lib/shopping'
 import { ShoppingList } from '@/components/shopping/ShoppingList'
+import { PinnedItems } from '@/components/shopping/PinnedItems'
 import { ShoppingCart } from 'lucide-react'
 import type { MedicationSummary } from '@/lib/supabase/types'
 
@@ -33,6 +34,7 @@ export default async function ShoppingPage() {
         </p>
       )}
 
+      <PinnedItems />
       <ShoppingList items={shoppingList} />
     </div>
   )
