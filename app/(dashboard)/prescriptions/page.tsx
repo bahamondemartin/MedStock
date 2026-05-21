@@ -229,7 +229,7 @@ export default function PrescriptionsPage() {
   useEffect(() => { load() }, [load])
 
   async function deletePrescription(id: string) {
-    if (!confirm('¿Eliminar esta receta?')) return
+    if (!confirm('¿Eliminar esta tratamiento?')) return
     await fetch(`/api/prescriptions/${id}`, { method: 'DELETE' })
     await load()
   }
@@ -239,7 +239,7 @@ export default function PrescriptionsPage() {
   if (showForm) {
     return (
       <div className="space-y-5">
-        <h1 className="text-xl font-bold text-slate-900">Nueva receta</h1>
+        <h1 className="text-xl font-bold text-slate-900">Nueva tratamiento</h1>
         <Card className="p-5">
           <AddPrescriptionForm
             onSuccess={() => { setShowForm(false); load() }}
@@ -254,10 +254,10 @@ export default function PrescriptionsPage() {
     <div className="space-y-5">
       <div className="flex items-center gap-2">
         <Clock className="w-5 h-5 text-brand-500" />
-        <h1 className="text-xl font-bold text-slate-900">Recetas</h1>
+        <h1 className="text-xl font-bold text-slate-900">Tratamientos</h1>
         <Button size="sm" onClick={() => setShowForm(true)} className="ml-auto">
           <Plus className="w-4 h-4 mr-1" />
-          Nueva receta
+          Nueva tratamiento
         </Button>
       </div>
 
@@ -302,16 +302,16 @@ export default function PrescriptionsPage() {
       ) : prescriptions.length === 0 ? (
         <div className="text-center py-12">
           <div className="text-4xl mb-3">📋</div>
-          <p className="font-medium text-slate-700">Sin recetas activas</p>
+          <p className="font-medium text-slate-700">Sin tratamientos activas</p>
           <p className="text-sm text-slate-500 mt-1 mb-5">Agrega un tratamiento para ver tu schedule diario.</p>
           <Button onClick={() => setShowForm(true)}>
             <Plus className="w-4 h-4 mr-1" />
-            Nueva receta
+            Nueva tratamiento
           </Button>
         </div>
       ) : (
         <div>
-          <h2 className="text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wide">Mis recetas</h2>
+          <h2 className="text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wide">Mis tratamientos</h2>
           <div className="space-y-2">
             {prescriptions.map((p) => (
               <Card key={p.id}>
