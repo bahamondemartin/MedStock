@@ -161,7 +161,7 @@ export function MedicationCard({ medication: med, onRefresh, onDelete, onAddStoc
         <div className="flex flex-wrap gap-1.5 mt-2 items-center">
           <StockBadge status={med.stock_status} total={med.total_stock} unit={med.unit} />
           <ExpiryBadge status={med.expiry_status} nextExpiry={med.next_expiry} />
-          {(med.expiry_status === 'warning' || med.expiry_status === 'soon') && onTogglePin && (
+          {med.next_expiry && med.expiry_status !== 'ok' && onTogglePin && (
             <button
               onClick={(e) => { e.stopPropagation(); onTogglePin(med.id, isPinned) }}
               className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full transition-colors ${
