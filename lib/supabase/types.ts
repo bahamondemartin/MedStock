@@ -67,6 +67,7 @@ export interface Prescription {
   medication_name: string
   dose: string
   schedule_times: string[]
+  frequency_hours: number | null
   start_date: string
   end_date: string | null
   active: boolean

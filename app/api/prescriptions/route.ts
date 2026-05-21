@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { medication_id, medication_name, dose, schedule_times, start_date, end_date, notes, patient_name } = body
+  const { medication_id, medication_name, dose, schedule_times, frequency_hours, start_date, end_date, notes, patient_name } = body
 
   if (!medication_name?.trim() || !dose?.trim() || !schedule_times?.length) {
     return NextResponse.json({ error: 'medication_name, dose y al menos un horario son requeridos' }, { status: 400 })
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
       medication_name: medication_name.trim(),
       dose: dose.trim(),
       schedule_times,
+      frequency_hours: frequency_hours ?? null,
       start_date: start_date ?? new Date().toISOString().slice(0, 10),
       end_date: end_date ?? null,
       notes: notes?.trim() ?? null,
