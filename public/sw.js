@@ -1,6 +1,5 @@
-const CACHE_NAME = 'medstock-v2'
+const CACHE_NAME = 'medstock-v3'
 const STATIC_ASSETS = [
-  '/',
   '/inventory',
   '/shopping',
 ]
@@ -25,8 +24,11 @@ self.addEventListener('fetch', (event) => {
   // Only cache GET requests for same-origin pages
   if (event.request.method !== 'GET') return
   if (!event.request.url.startsWith(self.location.origin)) return
-  // Don't cache API calls or Supabase
+  // Don't cache API calls, Supabase, or auth-dependent routes
   if (event.request.url.includes('/api/') || event.request.url.includes('supabase')) return
+  const url = new URL(event.request.url)
+  const authRoutes = ['/', '/home', '/login', '/auth']
+  if (authRoutes.some((r) => url.pathname === r || url.pathname.startsWith(r + '/'))) return
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
