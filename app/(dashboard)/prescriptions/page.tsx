@@ -4,7 +4,13 @@ import { useState, useEffect, useCallback } from 'react'
 import { Plus, Clock, Trash2, ChevronDown, ChevronUp, X, Wand2 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import type { Prescription } from '@/lib/supabase/types'
+import type { Prescription, PrescriptionMedItem } from '@/lib/supabase/types'
+
+/** Returns the medications list, falling back to legacy single-med fields */
+function getMedications(p: Prescription): PrescriptionMedItem[] {
+  if (p.medications && p.medications.length > 0) return p.medications
+  return [{ medication_id: p.medication_id, medication_name: p.medication_name, dose: p.dose }]
+}
 
 function timeLabel(time: string, now: Date) {
   const [h, m] = time.split(':').map(Number)
@@ -52,11 +58,6 @@ function fromMin(minutes: number): string {
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
 }
 
-/**
- * Suggest evenly-spaced schedule times for a given frequency.
- * When existingTimes are provided, finds the offset that maximises overlap
- * (within ±30 min) so medications can be taken together.
- */
 function suggestTimes(frequencyHours: number, existingTimes: string[]): string[] {
   if (frequencyHours <= 0 || frequencyHours > 24) return []
   const dosesPerDay = Math.max(1, Math.floor(24 / frequencyHours))
@@ -75,7 +76,6 @@ function suggestTimes(frequencyHours: number, existingTimes: string[]): string[]
       .length
   }
 
-  // Search every 15-min increment in one period [0, stepMin)
   let bestBase = 8 * 60
   let bestScore = -1
   for (let base = 0; base < stepMin; base += 15) {
@@ -87,8 +87,56 @@ function suggestTimes(frequencyHours: number, existingTimes: string[]): string[]
       bestBase = base
     }
   }
-
   return buildFromBase(bestBase)
+}
+
+interface MedEntry { medication_id: string; medication_name: string; dose: string }
+
+function MedEntryRow({
+  entry, idx, medications, showRemove,
+  onChange, onRemove,
+}: {
+  entry: MedEntry
+  idx: number
+  medications: { id: string; name: string }[]
+  showRemove: boolean
+  onChange: (idx: number, key: keyof MedEntry, value: string) => void
+  onRemove: (idx: number) => void
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 p-3 space-y-2 bg-slate-50/50">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-slate-500">Medicamento {idx + 1}</span>
+        {showRemove && (
+          <button type="button" onClick={() => onRemove(idx)} className="text-slate-400 hover:text-red-500">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      {medications.length > 0 && (
+        <select
+          value={entry.medication_id}
+          onChange={(e) => onChange(idx, 'medication_id', e.target.value)}
+          className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+        >
+          <option value="">Seleccionar del inventario…</option>
+          {medications.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+        </select>
+      )}
+      <input
+        value={entry.medication_name}
+        onChange={(e) => onChange(idx, 'medication_name', e.target.value)}
+        placeholder="Nombre del medicamento"
+        className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+      />
+      <input
+        value={entry.dose}
+        onChange={(e) => onChange(idx, 'dose', e.target.value)}
+        placeholder="Dosis (ej: 1 comprimido, 5ml)"
+        className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+      />
+    </div>
+  )
 }
 
 function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () => void }) {
@@ -99,10 +147,8 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
   const [existingPrescriptions, setExistingPrescriptions] = useState<Prescription[]>([])
   const [frequencyHours, setFrequencyHours] = useState<number | ''>('')
   const [suggestedNote, setSuggestedNote] = useState(false)
+  const [medEntries, setMedEntries] = useState<MedEntry[]>([{ medication_id: '', medication_name: '', dose: '' }])
   const [form, setForm] = useState({
-    medication_id: '',
-    medication_name: '',
-    dose: '',
     schedule_times: ['08:00'],
     start_date: new Date().toISOString().slice(0, 10),
     duration_days: 7,
@@ -117,6 +163,26 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
       if (data?.members?.length > 1) setFamilyMembers(data.members.map((m: { email: string }) => ({ email: m.email })))
     }).catch(() => {})
   }, [])
+
+  function updateMedEntry(idx: number, key: keyof MedEntry, value: string) {
+    setMedEntries(prev => prev.map((e, i) => {
+      if (i !== idx) return e
+      if (key === 'medication_id') {
+        const med = medications.find(m => m.id === value)
+        return { ...e, medication_id: value, medication_name: med?.name ?? e.medication_name }
+      }
+      if (key === 'medication_name') return { ...e, medication_name: value, medication_id: '' }
+      return { ...e, [key]: value }
+    }))
+  }
+
+  function addMedEntry() {
+    setMedEntries(prev => [...prev, { medication_id: '', medication_name: '', dose: '' }])
+  }
+
+  function removeMedEntry(idx: number) {
+    setMedEntries(prev => prev.filter((_, i) => i !== idx))
+  }
 
   function handleGenerate() {
     if (!frequencyHours || (frequencyHours as number) <= 0) return
@@ -147,15 +213,11 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
     })
   }
 
-  function selectMed(id: string) {
-    const med = medications.find(m => m.id === id)
-    setForm(f => ({ ...f, medication_id: id, medication_name: med?.name ?? '' }))
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.medication_name.trim()) { setError('Ingresa el nombre del medicamento'); return }
-    if (!form.dose.trim()) { setError('Ingresa la dosis'); return }
+    const validMeds = medEntries.filter(e => e.medication_name.trim())
+    if (!validMeds.length) { setError('Agrega al menos un medicamento'); return }
+    if (validMeds.some(e => !e.dose.trim())) { setError('Ingresa la dosis de cada medicamento'); return }
     if (!form.schedule_times.length) { setError('Agrega al menos un horario'); return }
     setLoading(true)
     setError(null)
@@ -165,9 +227,11 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          medication_id: form.medication_id || null,
-          medication_name: form.medication_name,
-          dose: form.dose,
+          medications: validMeds.map(m => ({
+            medication_id: m.medication_id || null,
+            medication_name: m.medication_name.trim(),
+            dose: m.dose.trim(),
+          })),
           schedule_times: [...form.schedule_times].sort(),
           frequency_hours: frequencyHours || null,
           start_date: form.start_date,
@@ -211,39 +275,33 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
         )}
       </div>
 
-      {/* Medication */}
+      {/* Medications list */}
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Medicamento *</label>
-        {medications.length > 0 && (
-          <select
-            value={form.medication_id}
-            onChange={(e) => selectMed(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white mb-2"
-          >
-            <option value="">Seleccionar del inventario…</option>
-            {medications.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </select>
-        )}
-        <input
-          value={form.medication_name}
-          onChange={(e) => setForm(f => ({ ...f, medication_name: e.target.value, medication_id: '' }))}
-          placeholder="O escribe el nombre manualmente"
-          className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-        />
+        <label className="block text-sm font-medium text-slate-700 mb-2">Medicamentos *</label>
+        <div className="space-y-2">
+          {medEntries.map((entry, idx) => (
+            <MedEntryRow
+              key={idx}
+              entry={entry}
+              idx={idx}
+              medications={medications}
+              showRemove={medEntries.length > 1}
+              onChange={updateMedEntry}
+              onRemove={removeMedEntry}
+            />
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={addMedEntry}
+          className="mt-2 text-xs text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Agregar otro medicamento
+        </button>
       </div>
 
-      {/* Dose */}
-      <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Dosis *</label>
-        <input
-          value={form.dose}
-          onChange={(e) => setForm(f => ({ ...f, dose: e.target.value }))}
-          placeholder="Ej: 1 comprimido, 5ml, 2 cápsulas"
-          className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-        />
-      </div>
-
-      {/* Frequency + generate */}
+      {/* Frequency */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Frecuencia</label>
         <div className="flex items-center gap-2">
@@ -254,8 +312,7 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
             max={24}
             value={frequencyHours}
             onChange={(e) => {
-              const v = e.target.value === '' ? '' : parseInt(e.target.value)
-              setFrequencyHours(v as number | '')
+              setFrequencyHours(e.target.value === '' ? '' : parseInt(e.target.value) as number)
               setSuggestedNote(false)
             }}
             placeholder="—"
@@ -273,9 +330,7 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
           </button>
         </div>
         {dosesPerDay && (
-          <p className="text-xs text-slate-400 mt-1">
-            {dosesPerDay} toma{dosesPerDay !== 1 ? 's' : ''} por día
-          </p>
+          <p className="text-xs text-slate-400 mt-1">{dosesPerDay} toma{dosesPerDay !== 1 ? 's' : ''} por día</p>
         )}
       </div>
 
@@ -284,8 +339,7 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
         <label className="block text-sm font-medium text-slate-700 mb-1">Horarios *</label>
         {suggestedNote && (
           <p className="text-xs text-brand-600 bg-brand-50 rounded-lg px-3 py-2 mb-2">
-            Horario sugerido para coincidir con tus tratamientos activos.
-            Puedes ajustarlo manualmente.
+            Horario sugerido para coincidir con tus tratamientos activos. Puedes ajustarlo manualmente.
           </p>
         )}
         <div className="space-y-2">
@@ -336,9 +390,7 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
             className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
           {form.duration_days > 0 && (
-            <p className="text-xs text-slate-400 mt-1">
-              Fin: {addDays(form.start_date, form.duration_days)}
-            </p>
+            <p className="text-xs text-slate-400 mt-1">Fin: {addDays(form.start_date, form.duration_days)}</p>
           )}
         </div>
       </div>
@@ -430,35 +482,38 @@ export default function PrescriptionsPage() {
         <div>
           <h2 className="text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wide">Schedule de hoy</h2>
           <Card className="divide-y divide-slate-100">
-            {schedule.map((entry, i) => (
-              <div
-                key={i}
-                className={`px-4 py-3 flex items-center gap-3 ${entry.isPast ? 'opacity-40' : ''}`}
-              >
-                <div className={`w-14 text-center rounded-lg py-1.5 flex-shrink-0 ${
-                  entry.isNext ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-600'
-                }`}>
-                  <span className="text-sm font-bold">{entry.time}</span>
+            {schedule.map((entry, i) => {
+              const meds = getMedications(entry.prescription)
+              return (
+                <div
+                  key={i}
+                  className={`px-4 py-3 flex items-center gap-3 ${entry.isPast ? 'opacity-40' : ''}`}
+                >
+                  <div className={`w-14 text-center rounded-lg py-1.5 flex-shrink-0 ${
+                    entry.isNext ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    <span className="text-sm font-bold">{entry.time}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 truncate">
+                      {meds.map(m => m.medication_name).join(', ')}
+                    </p>
+                    <p className="text-xs text-slate-400">{meds.map(m => m.dose).join(' · ')}</p>
+                  </div>
+                  {entry.prescription.patient_name && entry.prescription.patient_name !== 'Yo' && (
+                    <span className="text-xs bg-slate-100 text-slate-500 font-medium px-2 py-0.5 rounded-full flex-shrink-0">
+                      {entry.prescription.patient_name}
+                    </span>
+                  )}
+                  {entry.isNext && (
+                    <span className="text-xs bg-brand-50 text-brand-600 font-medium px-2 py-0.5 rounded-full flex-shrink-0">
+                      {timeLabel(entry.time, now) ?? 'Próxima'}
+                    </span>
+                  )}
+                  {entry.isPast && <span className="text-xs text-slate-300 flex-shrink-0">✓</span>}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 truncate">{entry.prescription.medication_name}</p>
-                  <p className="text-xs text-slate-400">{entry.prescription.dose}</p>
-                </div>
-                {entry.prescription.patient_name && entry.prescription.patient_name !== 'Yo' && (
-                  <span className="text-xs bg-slate-100 text-slate-500 font-medium px-2 py-0.5 rounded-full flex-shrink-0">
-                    {entry.prescription.patient_name}
-                  </span>
-                )}
-                {entry.isNext && (
-                  <span className="text-xs bg-brand-50 text-brand-600 font-medium px-2 py-0.5 rounded-full flex-shrink-0">
-                    {timeLabel(entry.time, now) ?? 'Próxima'}
-                  </span>
-                )}
-                {entry.isPast && (
-                  <span className="text-xs text-slate-300 flex-shrink-0">✓</span>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </Card>
         </div>
       )}
@@ -482,70 +537,75 @@ export default function PrescriptionsPage() {
         <div>
           <h2 className="text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wide">Mis tratamientos</h2>
           <div className="space-y-2">
-            {prescriptions.map((p) => (
-              <Card key={p.id}>
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-900 truncate">{p.medication_name}</p>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm text-slate-500">{p.dose}</p>
+            {prescriptions.map((p) => {
+              const meds = getMedications(p)
+              return (
+                <Card key={p.id}>
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        {meds.map((m, i) => (
+                          <div key={i} className="flex items-baseline gap-1.5 flex-wrap">
+                            <p className="font-semibold text-slate-900">{m.medication_name}</p>
+                            <p className="text-sm text-slate-500">{m.dose}</p>
+                          </div>
+                        ))}
                         {p.frequency_hours && (
-                          <span className="text-xs text-slate-400">· cada {p.frequency_hours}h</span>
+                          <p className="text-xs text-slate-400 mt-0.5">Cada {p.frequency_hours}h</p>
                         )}
                       </div>
-                    </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {p.patient_name && p.patient_name !== 'Yo' && (
-                        <span className="text-xs bg-slate-100 text-slate-500 font-medium px-2 py-0.5 rounded-full">
-                          {p.patient_name}
-                        </span>
-                      )}
-                      <button
-                        onClick={() => deletePrescription(p.id)}
-                        className="text-slate-300 hover:text-red-500 transition-colors p-1"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setExpanded(expanded === p.id ? null : p.id)}
-                        className="text-slate-400 hover:text-slate-600 p-1"
-                      >
-                        {expanded === p.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Time buttons — click to mark with strikethrough */}
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {p.schedule_times.map((t) => {
-                      const checked = checkedTimes[p.id]?.has(t)
-                      return (
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {p.patient_name && p.patient_name !== 'Yo' && (
+                          <span className="text-xs bg-slate-100 text-slate-500 font-medium px-2 py-0.5 rounded-full">
+                            {p.patient_name}
+                          </span>
+                        )}
                         <button
-                          key={t}
-                          onClick={() => toggleTime(p.id, t)}
-                          className={`text-xs font-medium px-2 py-0.5 rounded-full transition-colors ${
-                            checked
-                              ? 'bg-slate-100 text-slate-400 line-through'
-                              : 'bg-brand-50 text-brand-600 hover:bg-brand-100'
-                          }`}
+                          onClick={() => deletePrescription(p.id)}
+                          className="text-slate-300 hover:text-red-500 transition-colors p-1"
                         >
-                          {t}
+                          <Trash2 className="w-4 h-4" />
                         </button>
-                      )
-                    })}
-                  </div>
-                </div>
+                        <button
+                          onClick={() => setExpanded(expanded === p.id ? null : p.id)}
+                          className="text-slate-400 hover:text-slate-600 p-1"
+                        >
+                          {expanded === p.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
 
-                {expanded === p.id && (
-                  <div className="border-t border-slate-100 px-4 py-3 space-y-1 text-xs text-slate-500">
-                    <p>Inicio: <strong className="text-slate-700">{p.start_date}</strong></p>
-                    {p.end_date && <p>Fin: <strong className="text-slate-700">{p.end_date}</strong></p>}
-                    {p.notes && <p>Notas: <strong className="text-slate-700">{p.notes}</strong></p>}
+                    {/* Time buttons */}
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {p.schedule_times.map((t) => {
+                        const checked = checkedTimes[p.id]?.has(t)
+                        return (
+                          <button
+                            key={t}
+                            onClick={() => toggleTime(p.id, t)}
+                            className={`text-xs font-medium px-2 py-0.5 rounded-full transition-colors ${
+                              checked
+                                ? 'bg-slate-100 text-slate-400 line-through'
+                                : 'bg-brand-50 text-brand-600 hover:bg-brand-100'
+                            }`}
+                          >
+                            {t}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
-                )}
-              </Card>
-            ))}
+
+                  {expanded === p.id && (
+                    <div className="border-t border-slate-100 px-4 py-3 space-y-1 text-xs text-slate-500">
+                      <p>Inicio: <strong className="text-slate-700">{p.start_date}</strong></p>
+                      {p.end_date && <p>Fin: <strong className="text-slate-700">{p.end_date}</strong></p>}
+                      {p.notes && <p>Notas: <strong className="text-slate-700">{p.notes}</strong></p>}
+                    </div>
+                  )}
+                </Card>
+              )
+            })}
           </div>
         </div>
       )}

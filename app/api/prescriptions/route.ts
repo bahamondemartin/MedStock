@@ -22,18 +22,29 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { medication_id, medication_name, dose, schedule_times, frequency_hours, start_date, end_date, notes, patient_name } = body
+  const { medications, schedule_times, frequency_hours, start_date, end_date, notes, patient_name } = body
 
-  if (!medication_name?.trim() || !dose?.trim() || !schedule_times?.length) {
-    return NextResponse.json({ error: 'medication_name, dose y al menos un horario son requeridos' }, { status: 400 })
+  const meds: { medication_id: string | null; medication_name: string; dose: string }[] =
+    Array.isArray(medications) && medications.length > 0 ? medications : []
+
+  if (!meds.length || !meds[0].medication_name?.trim() || !schedule_times?.length) {
+    return NextResponse.json({ error: 'Al menos un medicamento y un horario son requeridos' }, { status: 400 })
   }
+
+  // Persist first med in legacy columns for backward compat
+  const first = meds[0]
 
   const { data, error } = await (supabase.from('med_prescriptions') as any)
     .insert({
       user_id: user.id,
-      medication_id: medication_id ?? null,
-      medication_name: medication_name.trim(),
-      dose: dose.trim(),
+      medication_id: first.medication_id ?? null,
+      medication_name: first.medication_name.trim(),
+      dose: first.dose?.trim() ?? '',
+      medications: meds.map(m => ({
+        medication_id: m.medication_id ?? null,
+        medication_name: m.medication_name.trim(),
+        dose: m.dose?.trim() ?? '',
+      })),
       schedule_times,
       frequency_hours: frequency_hours ?? null,
       start_date: start_date ?? new Date().toISOString().slice(0, 10),

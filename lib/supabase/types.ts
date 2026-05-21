@@ -60,12 +60,21 @@ export interface MedicationSummary {
   stock_status: StockStatus
 }
 
-export interface Prescription {
-  id: string
-  user_id: string
+export interface PrescriptionMedItem {
   medication_id: string | null
   medication_name: string
   dose: string
+}
+
+export interface Prescription {
+  id: string
+  user_id: string
+  // legacy single-medication fields (kept for backward compat)
+  medication_id: string | null
+  medication_name: string
+  dose: string
+  // multi-medication list (primary for new records)
+  medications: PrescriptionMedItem[]
   schedule_times: string[]
   frequency_hours: number | null
   start_date: string
