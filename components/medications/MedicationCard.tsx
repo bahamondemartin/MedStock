@@ -76,13 +76,15 @@ export function MedicationCard({ medication: med, onRefresh, onDelete, onAddStoc
   }
 
   async function saveLotEdit(lotId: string) {
+    const quantity = parseInt(lotForm.quantity)
+    if (isNaN(quantity) || quantity < 0) return
     setLotSaving(true)
     try {
       await fetch(`/api/medications/${med.id}/stock/${lotId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          quantity: parseInt(lotForm.quantity) || 0,
+          quantity,
           expiry_date: lotForm.expiry_date || null,
         }),
       })

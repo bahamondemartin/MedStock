@@ -12,10 +12,12 @@ interface Props {
 export function AddStockForm({ medicationId, onSuccess, onCancel }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [form, setForm] = useState({ quantity: 1, expiry_date: '' })
+  const [form, setForm] = useState({ quantity: '1', expiry_date: '' })
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const quantity = parseInt(form.quantity)
+    if (!quantity || quantity < 1) { setError('La cantidad debe ser al menos 1'); return }
     setLoading(true)
     setError(null)
     try {
@@ -23,7 +25,7 @@ export function AddStockForm({ medicationId, onSuccess, onCancel }: Props) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          quantity: form.quantity,
+          quantity,
           expiry_date: form.expiry_date || null,
         }),
       })
@@ -48,7 +50,7 @@ export function AddStockForm({ medicationId, onSuccess, onCancel }: Props) {
           type="number"
           min={1}
           value={form.quantity}
-          onChange={(e) => setForm((prev) => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+          onChange={(e) => setForm((prev) => ({ ...prev, quantity: e.target.value }))}
           className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
       </div>
