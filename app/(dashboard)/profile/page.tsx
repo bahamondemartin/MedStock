@@ -268,12 +268,21 @@ export default function ProfilePage() {
                 <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center">
                   <Users className="w-5 h-5 text-brand-600" />
                 </div>
-                <div>
+                <div className="flex-1">
                   <h3 className="font-semibold text-slate-900">{data.family.name}</h3>
                   <p className="text-xs text-slate-400">
                     {data.members.length} miembro{data.members.length !== 1 ? 's' : ''}
                   </p>
                 </div>
+                {data.role !== 'owner' && (
+                  <button
+                    onClick={leaveFamily}
+                    disabled={leaving}
+                    className="text-sm text-red-500 hover:text-red-700 font-medium disabled:opacity-50"
+                  >
+                    {leaving ? 'Saliendo…' : 'Salir'}
+                  </button>
+                )}
               </div>
             </Card>
 
@@ -328,15 +337,6 @@ export default function ProfilePage() {
               ))}
             </Card>
 
-            {data.role !== 'owner' && (
-              <button
-                onClick={leaveFamily}
-                disabled={leaving}
-                className="w-full py-2.5 rounded-xl border border-red-200 text-red-500 text-sm font-medium hover:bg-red-50 transition-colors disabled:opacity-50"
-              >
-                {leaving ? 'Saliendo…' : 'Salir de la familia'}
-              </button>
-            )}
           </div>
         )}
       </div>
