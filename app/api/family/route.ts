@@ -1,7 +1,16 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 
-// GET: return current user's family + members
+function getAdminClient() {
+  return createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
+
+// GET: return current user's family + members (with full_name from auth metadata)
 export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -24,7 +33,16 @@ export async function GET() {
     .select('id, user_id, role, joined_at, email')
     .eq('family_id', membership.family_id)
 
-  return NextResponse.json({ family, members: members ?? [], role: membership.role })
+  // Enrich members with full_name from auth user metadata
+  const admin = getAdminClient()
+  const enriched = await Promise.all(
+    (members ?? []).map(async (m: any) => {
+      const { data } = await admin.auth.admin.getUserById(m.user_id)
+      return { ...m, name: data?.user?.user_metadata?.full_name ?? null }
+    })
+  )
+
+  return NextResponse.json({ family, members: enriched, role: membership.role })
 }
 
 // DELETE: leave current family (members only — owners must delete the family)

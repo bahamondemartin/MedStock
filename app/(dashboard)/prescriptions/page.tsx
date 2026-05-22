@@ -197,7 +197,7 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
   const [error, setError] = useState<string | null>(null)
   const [medications, setMedications] = useState<{ id: string; name: string }[]>([])
   const [currentUserEmail, setCurrentUserEmail] = useState<string>('')
-  const [familyMembers, setFamilyMembers] = useState<{ email: string; user_id: string }[]>([])
+  const [familyMembers, setFamilyMembers] = useState<{ email: string; user_id: string; name: string | null }[]>([])
   const [existingPrescriptions, setExistingPrescriptions] = useState<Prescription[]>([])
   const [suggestedNote, setSuggestedNote] = useState(false)
   const [medEntries, setMedEntries] = useState<MedEntry[]>([
@@ -219,7 +219,11 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
           setFamilyMembers(
             d.members
               .filter((m: { user_id: string }) => m.user_id !== user?.id)
-              .map((m: { email: string; user_id: string }) => ({ email: m.email ?? '', user_id: m.user_id }))
+              .map((m: { email: string; user_id: string; name: string | null }) => ({
+                email: m.email ?? '',
+                user_id: m.user_id,
+                name: m.name ?? null,
+              }))
           )
         }
       }).catch(() => {})
@@ -315,7 +319,10 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
 
   const patientOptions = [
     { value: 'Yo', label: currentUserEmail ? `Yo (${currentUserEmail})` : 'Yo' },
-    ...familyMembers.map(m => ({ value: m.email, label: m.email })),
+    ...familyMembers.map(m => ({
+      value: m.email,
+      label: m.name ? `${m.name} (${m.email})` : m.email,
+    })),
   ]
   const canGenerate = medEntries.some(e => typeof e.frequency_hours === 'number' && e.frequency_hours > 0)
 
