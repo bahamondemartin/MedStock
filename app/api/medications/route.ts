@@ -9,7 +9,6 @@ export async function GET() {
 
   const result: any = await (supabase.from('v_medication_summary') as any)
     .select('*')
-    .eq('user_id', user.id)
     .order('name')
 
   if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 })
