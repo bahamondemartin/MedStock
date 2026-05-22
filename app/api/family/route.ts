@@ -27,7 +27,27 @@ export async function GET() {
   return NextResponse.json({ family, members: members ?? [], role: membership.role })
 }
 
-// POST: create a new family (user becomes owner)
+// DELETE: leave current family (members only — owners must delete the family)
+export async function DELETE() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { data: membership } = await (supabase.from('med_family_members') as any)
+    .select('id, role')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (!membership) return NextResponse.json({ error: 'No perteneces a ninguna familia' }, { status: 404 })
+  if (membership.role === 'owner') return NextResponse.json({ error: 'El administrador no puede salir. Elimina la familia o transfiere el rol.' }, { status: 403 })
+
+  const { error } = await (supabase.from('med_family_members') as any)
+    .delete()
+    .eq('id', membership.id)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}
 export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

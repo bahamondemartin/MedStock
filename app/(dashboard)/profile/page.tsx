@@ -35,6 +35,7 @@ export default function ProfilePage() {
   const [joining, setJoining] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showJoinModal, setShowJoinModal] = useState(false)
+  const [leaving, setLeaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
@@ -113,6 +114,22 @@ export default function ProfilePage() {
     await navigator.clipboard.writeText(code)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  async function leaveFamily() {
+    if (!confirm('¿Seguro que quieres salir de la familia? Perderás acceso al botiquín compartido.')) return
+    setLeaving(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/family', { method: 'DELETE' })
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error) }
+      flash('Saliste de la familia')
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error')
+    } finally {
+      setLeaving(false)
+    }
   }
 
   async function removeMember(userId: string) {
@@ -310,6 +327,16 @@ export default function ProfilePage() {
                 </div>
               ))}
             </Card>
+
+            {data.role !== 'owner' && (
+              <button
+                onClick={leaveFamily}
+                disabled={leaving}
+                className="w-full py-2.5 rounded-xl border border-red-200 text-red-500 text-sm font-medium hover:bg-red-50 transition-colors disabled:opacity-50"
+              >
+                {leaving ? 'Saliendo…' : 'Salir de la familia'}
+              </button>
+            )}
           </div>
         )}
       </div>
