@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { UserCircle, Users, Trash2, Plus, Copy, Check, X, UserPlus } from 'lucide-react'
+import { Users, Trash2, Plus, Copy, Check, X, UserPlus, Pencil } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
@@ -22,6 +22,10 @@ interface FamilyData {
 
 export default function ProfilePage() {
   const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [userName, setUserName] = useState<string>('')
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState('')
+  const [savingName, setSavingName] = useState(false)
   const [memberSince, setMemberSince] = useState<string | null>(null)
   const [data, setData] = useState<FamilyData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -41,6 +45,9 @@ export default function ProfilePage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         setUserEmail(user.email ?? null)
+        const name = user.user_metadata?.full_name ?? ''
+        setUserName(name)
+        setNameInput(name)
         setMemberSince(new Date(user.created_at).toLocaleDateString('es', { year: 'numeric', month: 'long', day: 'numeric' }))
       }
       const res = await fetch('/api/family')
@@ -114,7 +121,23 @@ export default function ProfilePage() {
     await load()
   }
 
-  const initials = userEmail ? userEmail[0].toUpperCase() : '?'
+  async function saveName() {
+    setSavingName(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.updateUser({ data: { full_name: nameInput.trim() } })
+      if (error) throw error
+      setUserName(nameInput.trim())
+      setEditingName(false)
+      flash('Nombre actualizado')
+    } catch {
+      setError('No se pudo guardar el nombre')
+    } finally {
+      setSavingName(false)
+    }
+  }
+
+  const initials = (userName || userEmail || '?')[0].toUpperCase()
 
   return (
     <div className="space-y-5">
@@ -132,17 +155,57 @@ export default function ProfilePage() {
       {/* Profile section */}
       <div>
         <h1 className="text-xl font-bold text-slate-900 mb-3">Mi Perfil</h1>
-        <Card className="p-5">
+        <Card className="p-5 space-y-4">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full bg-brand-100 flex items-center justify-center flex-shrink-0">
               <span className="text-xl font-bold text-brand-600">{initials}</span>
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="font-semibold text-slate-900 truncate">{userEmail ?? '…'}</p>
               {memberSince && (
                 <p className="text-xs text-slate-400 mt-0.5">Miembro desde {memberSince}</p>
               )}
             </div>
+          </div>
+
+          {/* Name field */}
+          <div className="border-t border-slate-100 pt-4">
+            <label className="block text-xs font-medium text-slate-500 mb-1.5">Nombre</label>
+            {editingName ? (
+              <div className="flex gap-2">
+                <input
+                  autoFocus
+                  value={nameInput}
+                  onChange={e => setNameInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false) }}
+                  placeholder="Ej: María García"
+                  className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+                <button
+                  onClick={saveName}
+                  disabled={savingName}
+                  className="px-3 py-2 rounded-lg bg-brand-500 text-white text-sm font-medium hover:bg-brand-600 disabled:opacity-50"
+                >
+                  {savingName ? '…' : <Check className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={() => { setEditingName(false); setNameInput(userName) }}
+                  className="px-3 py-2 rounded-lg bg-slate-100 text-slate-600 text-sm hover:bg-slate-200"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-slate-700">{userName || <span className="text-slate-400 italic">Sin nombre</span>}</p>
+                <button
+                  onClick={() => setEditingName(true)}
+                  className="text-slate-400 hover:text-brand-500 transition-colors p-1"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         </Card>
       </div>
