@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Plus, Clock, Trash2, ChevronDown, ChevronUp, X, Wand2 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { createClient } from '@/lib/supabase/client'
 import type { Prescription, PrescriptionMedItem } from '@/lib/supabase/types'
 
 function getMedications(p: Prescription): PrescriptionMedItem[] {
@@ -195,7 +196,8 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [medications, setMedications] = useState<{ id: string; name: string }[]>([])
-  const [familyMembers, setFamilyMembers] = useState<{ email: string }[]>([])
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>('')
+  const [familyMembers, setFamilyMembers] = useState<{ email: string; user_id: string }[]>([])
   const [existingPrescriptions, setExistingPrescriptions] = useState<Prescription[]>([])
   const [suggestedNote, setSuggestedNote] = useState(false)
   const [medEntries, setMedEntries] = useState<MedEntry[]>([
@@ -209,11 +211,21 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
   })
 
   useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setCurrentUserEmail(user.email ?? '')
+      fetch('/api/family').then(r => r.json()).then(d => {
+        if (d?.members?.length > 1) {
+          setFamilyMembers(
+            d.members
+              .filter((m: { user_id: string }) => m.user_id !== user?.id)
+              .map((m: { email: string; user_id: string }) => ({ email: m.email ?? '', user_id: m.user_id }))
+          )
+        }
+      }).catch(() => {})
+    })
     fetch('/api/medications').then(r => r.json()).then(d => setMedications(d ?? []))
     fetch('/api/prescriptions').then(r => r.json()).then(d => setExistingPrescriptions(d ?? []))
-    fetch('/api/family').then(r => r.json()).then(d => {
-      if (d?.members?.length > 1) setFamilyMembers(d.members.map((m: { email: string }) => ({ email: m.email })))
-    }).catch(() => {})
   }, [])
 
   function updateMedEntry(idx: number, key: keyof MedEntry, value: string | number | '') {
@@ -301,7 +313,10 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
     }
   }
 
-  const patientOptions = ['Yo', ...familyMembers.map(m => m.email)]
+  const patientOptions = [
+    { value: 'Yo', label: currentUserEmail ? `Yo (${currentUserEmail})` : 'Yo' },
+    ...familyMembers.map(m => ({ value: m.email, label: m.email })),
+  ]
   const canGenerate = medEntries.some(e => typeof e.frequency_hours === 'number' && e.frequency_hours > 0)
 
   return (
@@ -309,13 +324,13 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
       {/* Patient */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Para quién *</label>
-        {patientOptions.length > 1 ? (
+        {familyMembers.length > 0 ? (
           <select
             value={form.patient_name}
             onChange={(e) => setForm(f => ({ ...f, patient_name: e.target.value }))}
             className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
           >
-            {patientOptions.map(o => <option key={o} value={o}>{o}</option>)}
+            {patientOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         ) : (
           <input
