@@ -8,7 +8,6 @@ export async function GET() {
 
   const { data, error } = await (supabase.from('med_prescriptions') as any)
     .select('*')
-    .eq('user_id', user.id)
     .eq('active', true)
     .order('created_at', { ascending: false })
 

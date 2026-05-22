@@ -13,7 +13,6 @@ export async function POST(request: Request, { params }: Params) {
   const { data: med } = await (supabase.from('med_medications') as any)
     .select('id')
     .eq('id', medication_id)
-    .eq('user_id', user.id)
     .single()
 
   if (!med) return NextResponse.json({ error: 'Not found' }, { status: 404 })

@@ -450,6 +450,11 @@ function AddPrescriptionForm({ onSuccess, onCancel }: { onSuccess: () => void; o
   )
 }
 
+function parseDoseQty(dose: string): number {
+  const match = dose.match(/(\d+(?:\.\d+)?)/)
+  return match ? parseFloat(match[1]) : 1
+}
+
 export default function PrescriptionsPage() {
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([])
   const [loading, setLoading] = useState(true)
@@ -476,12 +481,28 @@ export default function PrescriptionsPage() {
     await load()
   }
 
-  function toggleTime(prescriptionId: string, time: string) {
+  function toggleTime(prescription: Prescription, time: string) {
+    const prescriptionId = prescription.id
+    const isChecking = !checkedTimes[prescriptionId]?.has(time)
+
     setCheckedTimes(prev => {
       const s = new Set(prev[prescriptionId] ?? [])
       s.has(time) ? s.delete(time) : s.add(time)
       return { ...prev, [prescriptionId]: s }
     })
+
+    if (isChecking) {
+      const meds = getMedications(prescription)
+      meds.forEach(med => {
+        if (!med.medication_id) return
+        const qty = parseDoseQty(med.dose)
+        fetch(`/api/medications/${med.medication_id}/consume`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quantity_used: qty, reason: 'prescription' }),
+        })
+      })
+    }
   }
 
   const schedule = todaySchedule(prescriptions, now)
@@ -619,7 +640,7 @@ export default function PrescriptionsPage() {
                         return (
                           <button
                             key={t}
-                            onClick={() => toggleTime(p.id, t)}
+                            onClick={() => toggleTime(p, t)}
                             className={`text-xs font-medium px-2 py-0.5 rounded-full transition-colors ${
                               checked
                                 ? 'bg-slate-100 text-slate-400 line-through'
